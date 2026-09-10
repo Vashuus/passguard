@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PassGuard — Auditor y generador de contraseñas</title>
+<meta name="description" content="Audita y genera contraseñas de alta entropía resistentes a la automatización con IA. 100% en tu navegador, sin enviar contraseñas.">
+<style>
+  :root{
+    --base:#1e1e2e; --mantle:#181825; --crust:#11111b;
+    --text:#cdd6f4; --subtext:#a6adc8; --overlay:#6c7086;
+    --blue:#89b4fa; --lavender:#b4befe; --mauve:#cba6f7; --peach:#fab387;
+    --green:#a6e3a1; --teal:#94e2d5; --yellow:#f9e2af; --red:#f38ba8;
+    --surface0:#313244; --surface1:#45475a; --surface2:#585b70;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:linear-gradient(160deg,var(--crust),var(--base) 55%,var(--mantle));
+    color:var(--text); font:17px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+    display:flex; justify-content:center; padding:40px 16px 80px;
+  }
+  main{max-width:680px;width:100%}
+  h1{font-size:1.9rem;letter-spacing:.5px}
+  h1 .dot{color:var(--mauve)}
+  .sub{color:var(--subtext);margin-top:-8px}
+  .card{background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:22px;margin-top:22px}
+  label{font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--subtext)}
+  input[type=text]{
+    width:100%;margin:8px 0 4px;padding:14px;border-radius:10px;border:1px solid var(--surface2);
+    background:var(--mantle);color:var(--text);font-size:1.2rem;font-family:ui-monospace,monospace;
+  }
+  input[type=text]:focus{outline:2px solid var(--blue)}
+  .bar{height:12px;background:var(--surface1);border-radius:99px;overflow:hidden;margin-top:12px}
+  .bar i{display:block;height:100%;width:0%;border-radius:99px;transition:width .25s,background .25s}
+  .meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--subtext);font-size:.85rem;margin-top:8px}
+  details{margin-top:10px;color:var(--subtext);font-size:.9rem}
+  details summary{cursor:pointer;color:var(--mauve)}
+  details ul{margin-left:18px;padding-left:6px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{
+    background:var(--blue);color:var(--crust);border:0;padding:10px 16px;border-radius:10px;
+    font-weight:700;cursor:pointer;font-size:.95rem;
+  }
+  button.ghost{background:var(--surface1);color:var(--text)}
+  button:hover{filter:brightness(1.1)}
+  .opts{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;color:var(--subtext)}
+  .opts label{text-transform:none;letter-spacing:0;font-size:.9rem;display:flex;gap:6px;align-items:center}
+  input[type=range]{accent-color:var(--mauve)}
+  .len{margin-left:auto;color:var(--mauve);font-weight:600}
+  .out{display:none;margin-top:8px;padding:14px;border-radius:10px;background:var(--crust);
+       border:1px solid var(--surface1);font-family:ui-monospace,monospace;word-break:break-all;font-size:1.05rem}
+  .badge{padding:3px 10px;border-radius:99px;font-weight:700;font-size:.8rem;background:var(--surface1)}
+  .foot{margin-top:34px;color:var(--overlay);font-size:.8rem;text-align:center}
+  .foot a{color:var(--lavender)}
+  .warn{color:var(--red)} .ok{color:var(--green)}
+  .kbd{background:var(--surface1);border-radius:6px;padding:1px 7px;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<main>
+  <h1>🔐 PassGuard<span class="dot">.</span></h1>
+  <p class="sub">Auditor y generador de contraseñas de alta entropía que resisten a la automatización con IA.</p>
+
+  <section class="card">
+    <label for="pw">Auditar una contraseña</label>
+    <input type="text" id="pw" autocomplete="off" spellcheck="false" placeholder="Escribe aquí…">
+    <div class="bar"><i id="bar"></i></div>
+    <div class="meta">
+      <span><b id="label">—</b></span>
+      <span id="entropy">Entropía: — bits</span>
+      <span id="time">Tiempo de crack: —</span>
+    </div>
+    <details id="patterns"><summary>Patrones detectados</summary><ul id="plist"></ul></details>
+    <details><summary>Recomendaciones</summary><ul id="tips"></ul></details>
+  </section>
+
+  <section class="card">
+    <label>Generar contraseña (CSPRNG del navegador)</label>
+    <div class="opts">
+      <span>Longitud</span>
+      <input type="range" id="len" min="12" max="64" value="20">
+      <span class="len" id="lenv">20</span>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="gUp" checked> Mayúsculas</label>
+      <label><input type="checkbox" id="gDig" checked> Dígitos</label>
+      <label><input type="checkbox" id="gSym" checked> Símbolos</label>
+      <label><input type="checkbox" id="gSim" checked> Evitar 1 l I O 0</label>
+    </div>
+    <div class="controls">
+      <button id="gen">Generar</button>
+      <button id="copy" class="ghost">Copiar</button>
+      <button id="pass" class="ghost">Frase-pase</button>
+      <button id="breach" class="ghost">Verificar filtraciones (HIBP)</button>
+    </div>
+    <div class="out" id="out"></div>
+    <div class="meta"><span id="gstatus">—</span></div>
+  </section>
+
+  <p class="foot">
+    Local y sin servidor: nada se envía al auditar. La verificación HIBP solo envía
+    los primeros 5 hex del hash SHA-1 (k-anónimo). · <a href="https://github.com/Vashuus/passguard">Código fuente</a>
+  </p>
+</main>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+
+/* ---- estimador de fuerza (mismo modelo que el core Go) ---- */
+const WEAK_DICT=["123456","password","12345678","qwerty","123456789","12345","1234","111111",
+"1234567","dragon","123123","baseball","abc123","football","monkey","letmein","shadow","master",
+"qwertyuiop","123321","mustang","1234567890","michael","654321","superman","1qaz2wsx","121212",
+"000000","qazwsx","123qwe","killer","trustno1","password1","secret","passw0rd","welcome","hello",
+"qwerty123","admin","root","toor","administrator","iloveyou","azerty","pass","123abc","p@ssw0rd"];
+const COMMON_WORDS=new Set("the and of to in have it that for you with on do say this they at but we his from not by she or as what go their can who get if would her all my make about know will up one time there year so think when which them some me people take out into just see him your come could now than like other how then its our two more these want way look first also new because day use no man find here thing give many well only those tell very even back good woman through us life child work down may after should call world over school still try last ask need too feel three state never become between high really something most another much family own old while mean keep student why let great same big group begin seem country help talk where turn problem every start hand might show part against place such again few case week company system each right program hear question during play small number always move night live point believe hold today bring happen next without before large under water room write mother area money story young fact month study book eye job word though member law car city name president team minute idea body information office door health person art war history party result change morning reason research food air teacher force boy age policy process music market sense nation college wait plan death half east west son tree hill moon star cat dog bird fish apple blue red green white black light dark sound song happy sad strong fast slow read write speak listen sleep work".split(" "));
+
+function charset(s){return new Set(s).size||1}
+function scoreFrom(g){if(g<1e3)return 0;if(g<1e6)return 1;if(g<1e8)return 2;if(g<1e10)return 3;return 4}
+function crackTime(g){const sec=g/1e10;
+  if(sec<1)return"instantáneo";
+  if(sec>=365*86400*100)return">100 años";
+  if(sec>=365*86400)return(sec/31536000).toFixed(1)+" años";
+  if(sec>=86400)return(sec/86400).toFixed(1)+" días";
+  if(sec>=3600)return(sec/3600).toFixed(1)+" horas";
+  return(sec/60).toFixed(1)+" min";
+}
+function patternHints(pw){
+  const out=[];const low=pw.toLowerCase();
+  for(const w of WEAK_DICT){if(low===w){out.push({t:"palabra común",g:1});break}}
+  if(/^(qwerty|asdf|asdfgh|qwertyuiop|zxcvbnm)$/i.test(pw))out.push({t:"patrón de teclado",g:1e3});
+  if(/^(12345|123456|12345678|123456789|1234567890|654321)$/.test(pw))out.push({t:"secuencia numérica",g:1e2});
+  if(/(.)\1{2,}/.test(pw))out.push({t:"repetición",g:10});
+  if(pw.length>=8){for(const w of COMMON_WORDS){if(low.includes(w)&&w.length>=4){out.push({t:"palabra común",g:COMMON_WORDS.size});break}}}
+  return out.slice(0,4);
+}
+function estimate(pw){
+  const pats=patternHints(pw);
+  let g;
+  if(pats.length){
+    g=Math.max(Math.pow(charset(pw),pw.length)/Math.pow(1.2,pats.length), pats.map(p=>p.g).reduce((a,b)=>a+b,0));
+  } else {
+    g=Math.pow(charset(pw),pw.length);
+  }
+  const E=Math.log2(g);
+  const score=scoreFrom(g);
+  const names={};pats.forEach(p=>names[p.t]=1);
+  return{scores:score,entropy:E,guesses:g,time:crackTime(g),pats,weakHas:!!names["palabra común"]};
+}
+
+/* ---- barra + textos ---- */
+const COLORS=["#f38ba8","#f38ba8","#f9e2af","#94e2d5","#a6e3a1"];
+const LBL=["INSERVIBLE","MUY DÉBIL","DÉBIL","BUENA","EXCELENTE"];
+function render(res){
+  const label=$("#label"),bar=$("#bar");
+  label.textContent=LBL[res.scores];
+  label.className="badge";label.style.background=COLORS[res.scores];
+  bar.style.width=(20+res.scores*20)+"%";
+  bar.style.background=COLORS[res.scores];
+  $("#entropy").textContent="Entropía: "+res.entropy.toFixed(1)+" bits";
+  $("#time").textContent="Tiempo de crack: "+res.time;
+  const ul=$("#plist");ul.innerHTML="";
+  res.pats.forEach(p=>{const li=document.createElement("li");li.textContent=p.t;ul.appendChild(li)});
+  $("#patterns").open=res.pats.length>0;
+  const tips=$("#tips");tips.innerHTML="";
+  const t=[];
+  if(pw.value.length<12)t.push("Usa al menos 12-16 caracteres.");
+  if(res.scores<3)t.push("Mezcla minúsculas, MAYÚSCULAS, dígitos y símbolos.");
+  if(res.weakHas)t.push("Evita palabras del diccionario, fechas y patrones de teclado.");
+  if(res.pats.length&&pw.value.length>=12)t.push("Evita repeticiones y secuencias (abc, 1234, qwerty).");
+  if(res.scores>=3)t.push("Guárdala en un gestor de contraseñas.");
+  t.forEach(x=>{const li=document.createElement("li");li.textContent=x;tips.appendChild(li)});
+}
+$("#pw").addEventListener("input",()=>render(estimate($("#pw").value)));
+
+/* ---- generador CSPRNG ---- */
+const LOW="abcdefghijkmnopqrstuvwxyz",UP="ABCDEFGHJKLMNPQRSTUVWXYZ",
+      DIG="23456789",SYM="!@#$%^&*()-_=+[]{};:,.<>?";
+function ri(n){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%n}
+function generate(o){
+  let alphabet=LOW+(o.up?UP:"")+(o.dig?DIG:"")+(o.sym?SYM:"");
+  if(o.sim)alphabet=alphabet.replace(/[l1IO0]/g,"");
+  const pools=[LOW,o.up&&UP,o.dig&&DIG,o.sym&&SYM].filter(Boolean)
+    .map(c=>o.sim?c.replace(/[l1IO0]/g,""):c).filter(c=>c);
+  for(let attempt=0;attempt<200;attempt++){
+    const g=[];
+    for(const p of pools)g.push(p[ri(p.length)]);
+    while(g.length<o.len)g.push(alphabet[ri(alphabet.length)]);
+    for(let i=g.length-1;i>0;i--){const j=ri(i+1);[g[i],g[j]]=[g[j],g[i]]}
+    const pw=g.join("");
+    const r=estimate(pw);
+    if(r.scores>=3&&r.entropy>=80)return pw;
+  }
+  return "";
+}
+function generateSafe(o){for(let i=0;i<5;i++){const p=generate(o);if(p)return p}return""}
+$("#len").addEventListener("input",e=>$("#lenv").textContent=e.target.value);
+let generated="";
+$("#gen").addEventListener("click",()=>{
+  generated=generateSafe({len:+$("#len").value,up:$("#gUp").checked,dig:$("#gDig").checked,sym:$("#gSym").checked,sim:$("#gSim").checked});
+  if(!generated){$("#gstatus").textContent="No se pudo generar.";return}
+  const out=$("#out");out.style.display="block";out.textContent=generated;
+  const r=estimate(generated);
+  $("#gstatus").textContent=`Entropía ${r.entropy.toFixed(1)} bits · ${LBL[r.scores]}`;
+});
+$("#copy").addEventListener("click",()=>{
+  if(generated)navigator.clipboard.writeText(generated).then(()=>$("#gstatus").textContent="Copiada ✓");
+});
+$("#pass").addEventListener("click",()=>{
+  const ws=["alce","arpa","barca","brazo","cabra","cielo","claro","cobre","dulce","dunas","farol",
+  "fuego","globo","hielo","lago","luna","mapa","musgo","nube","oso","papel","pez","puente","rama",
+  "roca","silla","sol","tigre","torre","uva","viento","cedro","chopo","lucero","pluma","senda","trigo"];
+  const w=[...Array(4)].map(()=>ws[ri(ws.length)]);
+  generated=w.join("-");
+  const out=$("#out");out.style.display="block";out.textContent=generated;
+  const r=estimate(generated);
+  $("#gstatus").textContent=`Frase-pase · Entropía ${r.entropy.toFixed(1)} bits · ${LBL[r.scores]}`;
+});
+/* ---- HIBP k-anónimo ---- */
+$("#breach").addEventListener("click",async()=>{
+  const pw=generated||$("#pw").value;
+  if(!pw){$("#gstatus").textContent="Primero genera o escribe una contraseña.";return}
+  $("#gstatus").textContent="Consultando HIBP…";
+  const buf=await crypto.subtle.digest("SHA-1",new TextEncoder().encode(pw));
+  const hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
+  try{
+    const r=await fetch("https://api.pwnedpasswords.com/range/"+hex.slice(0,5));
+    const txt=await r.text();
+    const suf=hex.slice(5);
+    const hit=txt.split(/\r?\n/).find(l=>l.startsWith(suf+":"));
+    if(hit){const n=+hit.split(":")[1];$("#gstatus").innerHTML=`<span class="warn">⚠ Aparece en ${n} filtraciones — ¡no la uses!</span>`}
+    else $("#gstatus").innerHTML=`<span class="ok">✓ No aparece en filtraciones conocidas de HIBP.</span>`;
+  }catch(e){$("#gstatus").textContent="Error al consultar HIBP: "+e.message}
+});
+render(estimate(""));
+</script>
+</body>
+</html>

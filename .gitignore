@@ -1,0 +1,6 @@
+/passguard
+/passguard.exe
+/dist/
+*.test
+*.out
+coverage.*
