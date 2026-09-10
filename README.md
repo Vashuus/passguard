@@ -1,11 +1,11 @@
-# PassGuard 🔐
+# PassGuard
 
 [![CI](https://github.com/Vashuus/passguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Vashuus/passguard/actions)
 [![MIT](https://img.shields.io/github/license/Vashuus/passguard)](/LICENSE)
 [![Release](https://img.shields.io/github/v/release/Vashuus/passguard)](https://github.com/Vashuus/passguard/releases)
 [![Web](https://img.shields.io/badge/web-GitHub%20Pages-89b4fa)](https://vashuus.github.io/passguard/)
 
-**AI-resistant password auditor & generator, written in Go.** Same engine behind four
+**AI-resistant password auditor & generator.** Same engine behind four
 fronts: **TUI**, **GUI**, **CLI** and a **static web app**.
 
 > Attackers (and AI tools) don't brute-force your password—they *predict* it: short
@@ -15,7 +15,7 @@ fronts: **TUI**, **GUI**, **CLI** and a **static web app**.
 
 Live demo (works 100% in your browser, nothing is sent to a server):
 
-**→ https://vashuus.github.io/passguard/**
+**Web: https://vashuus.github.io/passguard/**
 
 ---
 
