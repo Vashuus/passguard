@@ -46,9 +46,11 @@ jobs:
 
       - name: Empaquetar (zip, Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist/passguard | Out-Null
-          Copy-Item passguard.exe dist/passguard/
+          go build -ldflags "-s -w" -o dist/passguard/passguard.exe ./cmd/passguard
+          if (-not (Test-Path dist/passguard/passguard.exe)) { throw "passguard.exe no se generó" }
           Copy-Item README.md,LICENSE dist/passguard/
           Compress-Archive -Path dist/passguard -DestinationPath "${{ matrix.asset }}"
 
