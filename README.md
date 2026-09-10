@@ -1,99 +1,119 @@
-# PassGuard
+# PassGuard 🔐
 
-**Auditor y generador de contraseñas de alta entropía, resistentes a la automatización con IA.** Escrito en **Go**, con tres frentes en un solo binario: **TUI** (terminal), **GUI** (ventana Fyne) y **CLI**. Incluye web en GitHub Pages.
+[![CI](https://github.com/Vashuus/passguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Vashuus/passguard/actions)
+[![MIT](https://img.shields.io/github/license/Vashuus/passguard)](/LICENSE)
+[![Release](https://img.shields.io/github/v/release/Vashuus/passguard)](https://github.com/Vashuus/passguard/releases)
+[![Web](https://img.shields.io/badge/web-GitHub%20Pages-89b4fa)](https://vashuus.github.io/passguard/)
 
-> Las máquinas (y las IAs) adivinan contraseñas *cortas, del diccionario, con patrones de teclado y secuencias*. PassGuard penaliza justo eso: solo considera fuerte lo que resiste estimaciones de entropía reales y las listas de filtraciones.
+**AI-resistant password auditor & generator, written in Go.** Same engine behind four
+fronts: **TUI**, **GUI**, **CLI** and a **static web app**.
 
-[![CI](https://github.com/Vashuus/passguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Vashuus/passguard/actions) [![MIT](https://img.shields.io/github/license/Vashuus/passguard)](/LICENSE) [![Release](https://img.shields.io/github/v/release/Vashuus/passguard)](https://github.com/Vashuus/passguard/releases)
+> Attackers (and AI tools) don't brute-force your password—they *predict* it: short
+> strings, dictionary words, keyboard patterns, l33t speak and breaches they already
+> own. PassGuard scores exactly that: only high-entropy, pattern-free passwords with
+> no leaked history count as strong.
 
-## Características
+Live demo (works 100% in your browser, nothing is sent to a server):
 
-- **Auditor de fuerza** inspirado en zxcvbn: entropía (bits), estimación de intentos, tiempo de crack y patrones (palabras del diccionario, l33t `p4ssw0rd`, secuencias `1234`/`abc`, patrones de teclado `qwerty`, repeticiones `aaaaaa`/`abab`).
-- **Generador seguro**: claves aleatorias con `crypto/rand` (CSPRNG) + *rejection sampling*: descarta candidatos que el auditor marque débiles. Garantiza ≥1 de cada clase.
-- **Frase-pase** memorable estilo diceware (`cobre-uva-trigo-cabra`).
-- **Verificación de filtraciones** con API **HaveIBeenPwned** de forma **k-anónima**: solo salen los primeros 5 hex del SHA-1; la contraseña nunca se transmite.
-- **Tres interfaces**: TUI en terminal (bubbletea), ventana gráfica (Fyne) y CLI — todo el mismo binario.
-- **Web estática** en GitHub Pages (`docs/`) con el mismo modelo, funcionando 100% en el navegador.
-- Tema oscuro **Catppuccin Mocha**.
+**→ https://vashuus.github.io/passguard/**
 
-## Descargas
+---
 
-Los binarios los empaqueta GitHub Actions ([workflow](.github/workflows/release.yml)) a partir de un tag `v*`:
-- `passguard-<ver>-Linux_x86_64.tar.gz` y `.deb`
-- `passguard-<ver>-Windows_x86_64.zip`
-- La web se sirve desde `docs/` (GitHub Pages).
+## Features
 
-## Uso
+- **Strength auditing** (zxcvbn-inspired): entropy (bits), guess count, crack-time
+  and pattern detection — dictionary words, l33t (`p4ssw0rd`), digit/alpha
+  sequences (`1234`, `abcdef`), QWERTY runs (`qwerty`), repetitions (`aaaaaa`/`abab`).
+- **Secure generator**: cryptographically random keys (`crypto/rand` CSPRNG) with
+  **rejection sampling** — candidates the auditor flags as weak are discarded, and
+  each requested character class is guaranteed.
+- **Memorable passphrases** (diceware-style): `cobre-uva-trigo-cabra`.
+- **Breach check** via HaveIBeenPwned, **k-anonymously**: only the first 5 hex chars
+  of the SHA-1 hash leave your machine — the password itself never travels.
+- **Four interfaces, one binary**: TUI (bubbletea), GUI (Fyne), CLI (cobra) and the
+  web app in `docs/`.
+- **Catppuccin Mocha** dark theme.
+- Tests with `-race`, CI + multi-OS release pipelines.
+
+## Usage
 
 ```sh
-passguard                      # TUI interactiva
-passguard --gui                # ventana gráfica
-passguard check "miClave123"   # auditar en CLI
-passguard gen -l 24            # generar (longitud 24)
-passguard passphrase -w 5      # frase-pase de 5 palabras
-passguard leak "miClave123"    # comprobar filtraciones HIBP
+passguard                      # interactive TUI
+passguard --gui                # native GUI window
+passguard check "p@ssw0rd123"  # audit a password in the terminal
+passguard gen -l 24            # generate one (length 24)
+passguard passphrase -w 5      # 5-word passphrase
+passguard leak "p@ssw0rd123"   # has it leaked? (k-anonymous HIBP)
 ```
 
-### Comandos
+### Commands
 
-| Comando | Descripción |
+| Command | Description |
 |---|---|
-| `passguard` | TUI interactiva (espacio = HIBP, `g` = generar, `t` = mostrar/ocultar, `q`/`esc` = salir) |
-| `passguard --gui` | Ventana nativa Fyne con barra de fuerza en vivo |
-| `check "<pw>"` | Entropía, intentos, tiempo de crack, fuerza y patrones |
-| `gen [-l 20] [--upper] [--digits] [--symbols] [--similar]` | Generar contraseña CSPRNG |
-| `passphrase [-w 4]` | Frase-pase memorable |
-| `leak "<pw>"` | ¿Apareció en una filtración? (HIBP k-anónimo) |
+| `passguard` | TUI (space = HIBP check, `g` = generate, `t` = reveal/hide, `q`/`esc` = quit) |
+| `passguard --gui` | Fyne window with a live strength bar |
+| `check "<pw>"` | Entropy, guesses, crack time, strength score and found patterns |
+| `gen [-l 20] [--upper] [--digits] [--symbols] [--similar]` | CSPRNG-password |
+| `passphrase [-w 4]` | Memorable passphrase |
+| `leak "<pw>"` | Did it appear in a known breach? (HIBP, k-anonymous) |
 
-## Compilar
+## Install & build
 
 ```sh
-go build ./cmd/passguard     # binario: passguard
-ctest  (no aplica aquí)      # pruebas: go test ./...
+go build ./cmd/passguard        # binary: passguard
+go test ./...                   # unit tests (core)
+go test -race ./internal/strength ./internal/generator
 gofmt -l . && go vet ./...
 ```
 
-Requisitos: Go ≥ 1.22. La GUI (Fyne) necesita toolchain C y (en Linux) `libgl1-mesa-dev xorg-dev libgtk-3-dev`.
+Requirements: Go ≥ 1.22. The Fyne GUI needs a C toolchain and on Linux
+`libgl1-mesa-dev xorg-dev libgtk-3-dev`.
 
-## Pruebas
+Prebuilt binaries are produced by the [release workflow](.github/workflows/release.yml)
+for every `v*` tag: Linux (`tar.gz`, `.deb`), Windows (`zip`) and macOS (`dmg`).
 
-```sh
-go test ./...                    # core: strength, generator, breach, config
-go test -race ./internal/strength ./internal/generator
-```
-
-## Estructura
+## Project structure
 
 ```
 passguard/
   go.mod / go.sum
   cmd/passguard/
-    main.go              Root CLI (cobra) + dispatch TUI/GUI
-    runner_tui.go        Interfaz de terminal (bubbletea)
-    runner_gui.go        Interfaz gráfica (Fyne, tema Catppuccin)
-    breach.go            Helper de cliente HIBP para el CLI
+    main.go              Cobra root (CLI) + TUI/GUI dispatch
+    runner_tui.go        Terminal UI (bubbletea)
+    runner_gui.go        Native GUI (Fyne, Catppuccin theme)
+    breach.go            HIBP client helper
   internal/
-    strength/            Motor de fuerza (zxcvbn-like) + diccionarios embebidos
-    generator/           CSPRNG + rejection sampling + frase-pase
-    breach/              Cliente HIBP k-anónimo
-    config/              Config JSON en ~/.config/passguard
-  docs/index.html        Página web del proyecto (GitHub Pages)
-  .github/workflows/     CI (build+test) y Release (buildeos por OS)
+    strength/            Entropy engine (zxcvbn-like) + embedded dictionaries
+    generator/           CSPRNG + rejection sampling + passphrases
+    breach/              k-anonymous HIBP client
+    config/              JSON config at ~/.config/passguard
+  docs/index.html        GitHub Pages web app
+  .github/workflows/     CI (build+test) and Release (per-OS binaries)
+  res/
+    icon.svg             App icon
 ```
 
-## Modelo de entropía
+## Entropy model
 
-El motor combina cobertura de clases de caracteres, diccionarios de contraseñas filtradas y palabras comunes, sustituciones l33t, secuencias numéricas/alfabéticas, patrones de teclado QWERTY y subcadenas repetidas. El score (0–4) y los "tiempos de crack" siguen las bandas de zxcvbn (guesses vs. ataque offline rápido de ~10¹⁰ guesses/s).
+The engine combines character-class coverage with embedded dictionaries of leaked /
+common passwords, English words, l33t substitutions, numeric and alphabetic
+sequences, QWERTY keyboard runs and repeated substrings. The `0–4` score and
+crack-time bands follow zxcvbn's guess-count thresholds (vs. a fast offline attack
+at ~10¹⁰ guesses/s).
 
-## Limitaciones
+## Limitations
 
-- Los diccionarios embebidos son acotados; contraseñas con palabras en otros idiomas pueden puntuar de más. El chequeo HIBP cubre las filtraciones reales conocidas.
-- El estimador es un modelo probabilístico, no una garantía de irrompibilidad: la mejor práctica es un **gestor de contraseñas** con claves generadas aleatoriamente y 2FA.
+- Embedded dictionaries are intentionally bounded; words from other languages may
+  be over-scored. The HIBP check covers real known breaches.
+- Entropy estimation is a probabilistic model, not a guarantee of uncrackability.
+  Best practice: use a **password manager** with randomly generated keys + 2FA.
 
-## Seguridad
+## Security
 
-Ver [SECURITY.md](SECURITY.md). Para reportes, escribe a un canal privado (GitHub Security Advisories) — nunca expongas contraseñas de prueba reales en issues.
+Read [SECURITY.md](SECURITY.md). This project **never transmits your password**;
+only the SHA-1 prefix goes out for the breach check. Report issues privately via
+GitHub Security Advisories.
 
-## Licencia
+## License
 
 MIT — see [LICENSE](LICENSE).
