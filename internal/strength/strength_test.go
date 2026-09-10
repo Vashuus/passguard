@@ -18,6 +18,35 @@ func TestEstimateWeakClassics(t *testing.T) {
 	}
 }
 
+func TestEstimateDigitSequences(t *testing.T) {
+	weak := []string{
+		"123456789", "1234567890", "0987654321", "0123456789",
+		"12345678900", "1122334455", "111222333", "7845129630",
+	}
+	for _, pw := range weak {
+		res := Estimate(pw)
+		if res.Score > 2 {
+			t.Errorf("%q: score=%d, secuencia de dígitos debe ser débil", pw, res.Score)
+		}
+	}
+}
+
+func TestEstimateYearsAndWordsWithDigits(t *testing.T) {
+	for _, pw := range []string{"1987", "2024", "paul2024", "password123", "qwerty123", "Batman123"} {
+		res := Estimate(pw)
+		if res.Score > 2 {
+			t.Errorf("%q: score=%d, debe ser débil", pw, res.Score)
+		}
+	}
+}
+
+func TestEstimateLongRandomDigit(t *testing.T) {
+	res := Estimate("18983212")
+	if res.Score > 2 {
+		t.Errorf("18983212: score=%d, debe ser débil (dígitos puros)", res.Score)
+	}
+}
+
 func TestEstimateKeyboardAndSequence(t *testing.T) {
 	for _, pw := range []string{"qwertyuiop", "zxcvbnm", "1234567890", "asdfghjkl", "qazwsxedc"} {
 		res := Estimate(pw)

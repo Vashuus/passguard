@@ -31,19 +31,24 @@ func findMatches(pw string) []candidate {
 		matches = append(matches, c)
 	}
 
-	// 1. dictionary words + common passwords (with l33t)
+	// 1. dictionary words + common passwords (with l33t and digit suffixes)
 	dictMatches(pw, &matches)
 
-	// 2. keyboard runs (qwerty)
+	// 2. keyboard + numpad runs (qwerty, 789456123, 147258369...)
 	add(keyboardRuns(runes))
 
-	// 3. numeric sequences like 1234, 654321
-	add(sequenceRun(runes, "0123456789", "seq_num", 100))
-	add(sequenceRun(runes, "abcdefghijklmnopqrstuvwxyz", "seq_alpha", 676))
-	add(sequenceRun(runes, "qwertyuiopasdfghjklzxcvbnm", "seq_kbd", 1000))
+	// 3. sequences: digits, alpha, uppercase, keyboard
+	add(sequenceRun(runes, "0123456789", "seq_num", 100, true))
+	add(sequenceRun(runes, "abcdefghijklmnopqrstuvwxyz", "seq_alpha", 676, false))
+	add(sequenceRun(runes, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "seq_alpha", 676, false))
+	add(sequenceRun(runes, "qwertyuiopasdfghjklzxcvbnm", "seq_kbd", 1000, false))
 
-	// 4. repeated substrings ("ababab", "aaaa")
+	// 4. years (1900-2099)
+	add(yearRun(runes))
+
+	// 5. repeated substrings ("ababab", "aaaa") and grouped digits ("111222333")
 	add(repeatRun(runes))
+	add(groupedRepeatRun(runes))
 
 	return matches
 }
@@ -139,7 +144,8 @@ func allDigits(s string) bool {
 }
 
 // unleet reverses common leetspeak substitutions if doing so yields a word.
-// Returns (ok, decoded).
+// Trailing digits are always stripped for lookup ("password123" -> "password").
+// Returns (changed, decoded).
 func unleet(word string) (bool, string) {
 	table := []struct{ from, to string }{
 		{"4", "a"}, {"@", "a"}, {"8", "b"}, {"3", "e"}, {"6", "g"},
@@ -150,26 +156,34 @@ func unleet(word string) (bool, string) {
 	for _, s := range table {
 		alt = strings.ReplaceAll(alt, s.from, s.to)
 	}
-	if alt == word {
-		return false, word
+	changed := alt != word
+
+	// candidate forms: leet-decoded, then trailing digits stripped
+	forms := []string{alt, strings.TrimRight(alt, "0123456789")}
+	if changed {
+		forms = append(forms, word, strings.TrimRight(word, "0123456789"))
 	}
-	if _, ok := commonPasswords[alt]; ok {
-		return true, alt
+	for _, f := range forms {
+		if _, ok := commonPasswords[f]; ok {
+			return changed, f
+		}
+		if _, ok := englishWords[f]; ok {
+			return changed, f
+		}
 	}
-	if _, ok := englishWords[alt]; ok {
-		return true, alt
-	}
-	// try removing trailing digits (p@ssword123 -> password)
-	trimmed := strings.TrimRight(alt, "0123456789")
-	if _, ok := commonPasswords[trimmed]; ok {
-		return true, trimmed
-	}
-	return false, word
+	return changed, word
 }
 
-// keyboardRuns finds runs of 3+ keys in qwerty rows.
+// keyboardRuns finds runs of 3+ keys in qwerty rows or the numeric keypad
+// (rows 789456123/741852963, columns 147258369, diagonals 159357).
 func keyboardRuns(runes []rune) candidate {
-	rows := []string{"qwertyuiopasdfghjklzxcvbnm", "1234567890", "!@#$%^&*()"}
+	rows := []string{
+		"qwertyuiopasdfghjklzxcvbnm", "1234567890", "!@#$%^&*()",
+		"789456123", "741852963", "147258369", "159357",
+	}
+	prevR, nextR := -1, -1
+	_ = prevR
+	_ = nextR
 	var best candidate
 	for ri := 0; ri < len(runes); ri++ {
 		cur := 1
@@ -178,15 +192,9 @@ func keyboardRuns(runes []rune) candidate {
 			for _, row := range rows {
 				prev := strings.IndexRune(row, runes[rj-1])
 				next := strings.IndexRune(row, runes[rj])
-				if prev >= 0 && next >= 0 && (next == prev+1 || next == prev-1 || abs(next-prev) >= len(row)-1) {
-					// forward/backward adjacency (wraparound for digits row)
-					if prev == 0 && next == len(row)-1 {
-						break
-					}
-					if next == prev+1 || next == prev-1 {
-						ok = true
-						break
-					}
+				if prev >= 0 && next >= 0 && (next == prev+1 || next == prev-1) {
+					ok = true
+					break
 				}
 			}
 			if !ok {
@@ -209,44 +217,43 @@ func keyboardRuns(runes []rune) candidate {
 	return candidate{}
 }
 
-func abs(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
 // sequenceRun finds consecutive ascending/descending runs in a sorted alphabet.
-func sequenceRun(runes []rune, alphabet, typ string, perChar float64) candidate {
+// wrap allows digit sequences like 7890 / 09876 to keep matching.
+func sequenceRun(runes []rune, alphabet, typ string, perChar float64, wrap bool) candidate {
 	idx := func(r rune) int { return strings.IndexRune(alphabet, r) }
+	adj := func(a, b rune) (int, int) {
+		pa, pb := idx(a), idx(b)
+		if pa < 0 || pb < 0 {
+			return -1, -1
+		}
+		diff := pb - pa
+		if wrap && diff == -9 { // digit wrap 9->0
+			return 1, -1
+		}
+		if wrap && diff == 9 { // digit wrap 0->9 (descending)
+			return -1, 1
+		}
+		return pa, pb
+	}
 	var best candidate
 	for i := 0; i < len(runes); i++ {
-		asc, desc := 1, 1
-		for j := i + 1; j < len(runes); j++ {
-			prev, cur := idx(runes[j-1]), idx(runes[j])
-			if prev < 0 || cur < 0 {
-				break
+		bestLen := 1
+		for _, dir := range []int{1, -1} {
+			cur := 1
+			for j := i + 1; j < len(runes); j++ {
+				a, b := adj(runes[j-1], runes[j])
+				if a < 0 || b < 0 {
+					break
+				}
+				if (b == a+1 && dir == 1) || (b == a-1 && dir == -1) {
+					cur++
+				} else {
+					break
+				}
 			}
-			if cur == prev+1 {
-				asc++
-			} else {
-				break
+			if cur > bestLen {
+				bestLen = cur
 			}
-		}
-		for j := i + 1; j < len(runes); j++ {
-			prev, cur := idx(runes[j-1]), idx(runes[j])
-			if prev < 0 || cur < 0 {
-				break
-			}
-			if cur == prev-1 {
-				desc++
-			} else {
-				break
-			}
-		}
-		bestLen := asc
-		if desc > asc {
-			bestLen = desc
 		}
 		if bestLen >= 3 && bestLen > best.end-best.start {
 			best = candidate{start: i, end: i + bestLen}
@@ -263,20 +270,32 @@ func sequenceRun(runes []rune, alphabet, typ string, perChar float64) candidate 
 	return candidate{}
 }
 
-// repeatRun finds a substring repeated 2+ times, and runs of identical chars.
-func repeatRun(runes []rune) candidate {
-	var best candidate
-	// runs of the same char
-	for i := 0; i < len(runes); i++ {
-		j := i
-		for j < len(runes) && runes[j] == runes[i] {
-			j++
+// yearRun flags common years 1900-2099, a very common human pattern.
+func yearRun(runes []rune) candidate {
+	for i := 0; i+4 <= len(runes); i++ {
+		if !allDigits(string(runes[i : i+4])) {
+			continue
 		}
-		if j-i >= 3 && j-i > best.end-best.start {
-			best = candidate{start: i, end: j}
+		y := 0
+		for _, r := range runes[i : i+4] {
+			y = y*10 + int(r-'0')
+		}
+		if y >= 1900 && y <= 2099 {
+			g := 199.0 // ~200 possible years
+			return candidate{
+				start: i, end: i + 4, typ: "seq_num",
+				guesses:     g,
+				guessesLog2: lg2(g),
+			}
 		}
 	}
-	// periodic repeats over 2-6 length seeds
+	return candidate{}
+}
+
+// groupedRepeatRun catches grouped digit/key patterns like "111222333",
+// "qqqwww", "121212" that single-char repeat runs miss.
+func groupedRepeatRun(runes []rune) candidate {
+	var best candidate
 	for seed := 2; seed <= 6; seed++ {
 		if seed*2 > len(runes) {
 			break
@@ -290,9 +309,32 @@ func repeatRun(runes []rune) candidate {
 			for j+seed <= len(runes) && string(runes[j:j+seed]) == a {
 				j += seed
 			}
-			if j-i >= seed*2 && j-i > best.end-best.start {
+			if j-i > best.end-best.start {
 				best = candidate{start: i, end: j}
 			}
+		}
+	}
+	if best.end-best.start >= 1 {
+		l := float64(best.end - best.start)
+		g := 100 * math.Pow(2, l-3)
+		best.typ = "repeat"
+		best.guesses = g
+		best.guessesLog2 = lg2(g)
+		return best
+	}
+	return candidate{}
+}
+
+// repeatRun finds runs of the same character ("aaaa", "11111").
+func repeatRun(runes []rune) candidate {
+	var best candidate
+	for i := 0; i < len(runes); i++ {
+		j := i
+		for j < len(runes) && runes[j] == runes[i] {
+			j++
+		}
+		if j-i >= 3 && j-i > best.end-best.start {
+			best = candidate{start: i, end: j}
 		}
 	}
 	if best.end-best.start >= 3 {

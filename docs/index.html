@@ -107,15 +107,25 @@
 "use strict";
 const $=s=>document.querySelector(s);
 
-/* ---- estimador de fuerza (mismo modelo que el core Go) ---- */
-const WEAK_DICT=["123456","password","12345678","qwerty","123456789","12345","1234","111111",
-"1234567","dragon","123123","baseball","abc123","football","monkey","letmein","shadow","master",
-"qwertyuiop","123321","mustang","1234567890","michael","654321","superman","1qaz2wsx","121212",
-"000000","qazwsx","123qwe","killer","trustno1","password1","secret","passw0rd","welcome","hello",
-"qwerty123","admin","root","toor","administrator","iloveyou","azerty","pass","123abc","p@ssw0rd"];
+/* ---- estimador de fuerza: barrido por segmentos, igual que el core Go ---- */
+const WEAK_DICT=new Map([
+["123456",1],["password",1],["12345678",1],["qwerty",2],["123456789",1],["12345",1],["1234",1],
+["111111",1],["1234567",3],["dragon",5],["123123",3],["baseball",3],["abc123",3],["football",3],
+["monkey",5],["letmein",5],["shadow",8],["master",5],["qwertyuiop",6],["123321",5],["mustang",8],
+["1234567890",1],["michael",10],["654321",5],["superman",8],["1qaz2wsx",4],["121212",6],["000000",4],
+["qazwsx",6],["123qwe",5],["killer",12],["trustno1",8],["password1",2],["secret",8],["passw0rd",3],
+["welcome",10],["hello",12],["qwerty123",3],["admin",2],["root",5],["toor",5],["administrator",10],
+["iloveyou",8],["azerty",5],["pass",5],["123abc",5],["p@ssw0rd",4],["9876543210",2],["0987654321",1],
+["0123456789",1],["1122334455",2],["112233",2],["111222",2],["999999",2],["888888",2],["777777",3],
+["555555",2],["222222",2],["13579",3],["24680",3],["147258",3],["2580",3],["159357",4],
+["789456",3],["123654",3],["1234abcd",4],["abcd1234",4],["password123",2],["abc123456",4],
+["1q2w3e4r",4],["q1w2e3r4",4],["qazwsxedc",5],["test123",3],["admin123",3],["root123",4],
+["qwerty12345",4],["mypassword",5],["welcome1",4],["princess1",5],["letmein1",4],["baseball1",4],
+["trustno1",3],["master1",8],["696969",5],["666666",5],["7777777",6],["qwerty1",8],["password12",10]]);
 const COMMON_WORDS=new Set("the and of to in have it that for you with on do say this they at but we his from not by she or as what go their can who get if would her all my make about know will up one time there year so think when which them some me people take out into just see him your come could now than like other how then its our two more these want way look first also new because day use no man find here thing give many well only those tell very even back good woman through us life child work down may after should call world over school still try last ask need too feel three state never become between high really something most another much family own old while mean keep student why let great same big group begin seem country help talk where turn problem every start hand might show part against place such again few case week company system each right program hear question during play small number always move night live point believe hold today bring happen next without before large under water room write mother area money story young fact month study book eye job word though member law car city name president team minute idea body information office door health person art war history party result change morning reason research food air teacher force boy age policy process music market sense nation college wait plan death half east west son tree hill moon star cat dog bird fish apple blue red green white black light dark sound song happy sad strong fast slow read write speak listen sleep work".split(" "));
 
-function charset(s){return new Set(s).size||1}
+function M(s){return new Set(s).size||1}               // charset
+function lg(v){return v>0?Math.log2(v):0}              // log2 bits
 function scoreFrom(g){if(g<1e3)return 0;if(g<1e6)return 1;if(g<1e8)return 2;if(g<1e10)return 3;return 4}
 function crackTime(g){const sec=g/1e10;
   if(sec<1)return"instantáneo";
@@ -125,27 +135,110 @@ function crackTime(g){const sec=g/1e10;
   if(sec>=3600)return(sec/3600).toFixed(1)+" horas";
   return(sec/60).toFixed(1)+" min";
 }
-function patternHints(pw){
-  const out=[];const low=pw.toLowerCase();
-  for(const w of WEAK_DICT){if(low===w){out.push({t:"palabra común",g:1});break}}
-  if(/^(qwerty|asdf|asdfgh|qwertyuiop|zxcvbnm)$/i.test(pw))out.push({t:"patrón de teclado",g:1e3});
-  if(/^(12345|123456|12345678|123456789|1234567890|654321)$/.test(pw))out.push({t:"secuencia numérica",g:1e2});
-  if(/(.)\1{2,}/.test(pw))out.push({t:"repetición",g:10});
-  if(pw.length>=8){for(const w of COMMON_WORDS){if(low.includes(w)&&w.length>=4){out.push({t:"palabra común",g:COMMON_WORDS.size});break}}}
-  return out.slice(0,4);
-}
-function estimate(pw){
-  const pats=patternHints(pw);
-  let g;
-  if(pats.length){
-    g=Math.max(Math.pow(charset(pw),pw.length)/Math.pow(1.2,pats.length), pats.map(p=>p.g).reduce((a,b)=>a+b,0));
-  } else {
-    g=Math.pow(charset(pw),pw.length);
+
+// matches: array of {s,e,typ,g} (start, end, type, guesses)
+function findMatches(pw){
+  const m=[];                                      // collect
+  const runes=[...pw];
+
+  // 1) dictionary / leet / word-with-digit-suffix, scanning all substrings
+  const low=pw.toLowerCase();
+  for(let i=0;i<runes.length;i++){
+    for(let j=i+1;j<=runes.length && j-i<=20;j++){
+      const w=low.slice(i,j);
+      const alts=[w, w.replace(/[14!@]/g,"a").replace(/0/g,"o").replace(/3/g,"e").replace(/[$5]/g,"s").replace(/7/g,"t").replace(/8/g,"b").replace(/[69]/g,"g")];
+      const forms=[...new Set([...alts, ...alts.map(x=>x.replace(/\d+$/,""))])];
+      for(const f of forms){
+        const g=WEAK_DICT.get(f);
+        if(g){m.push({s:i,e:j,typ:"palabra común",g:Math.max(1,g*Math.pow(2,(w!==f)?1:0))});break}
+        if(COMMON_WORDS.has(f)&&f.length>=4){m.push({s:i,e:j,typ:"palabra común",g:2400});break}
+      }
+    }
   }
-  const E=Math.log2(g);
-  const score=scoreFrom(g);
-  const names={};pats.forEach(p=>names[p.t]=1);
-  return{scores:score,entropy:E,guesses:g,time:crackTime(g),pats,weakHas:!!names["palabra común"]};
+
+  // 2) keyboard + numpad runs
+  const keys=["qwertyuiopasdfghjklzxcvbnm","1234567890","!@#$%^&*()","789456123","741852963","147258369","159357"];
+  let kbest={len:0,s:0,e:0};
+  const inAdj=(a,b)=>keys.some(row=>{const pa=row.indexOf(a),pb=row.indexOf(b);return pa>=0&&pb>=0&&(pb===pa+1||pb===pa-1)});
+  for(let i=0;i<runes.length;i++){
+    let j=i;
+    while(j+1<runes.length&&inAdj(runes[j],runes[j+1]))j++;
+    if(j-i+1>=3&&j-i+1>kbest.len){kbest={len:j-i+1,s:i,e:j+1}}
+  }
+  if(kbest.len>=3)m.push({s:kbest.s,e:kbest.e,typ:"patrón de teclado",g:300*Math.pow(2,kbest.len-3)});
+
+  // 3) numeric/alpha/qwerty sequences (with digit wrap 9->0)
+  const seqAlpha=[["0123456789",true,100],["abcdefghijklmnopqrstuvwxyz",false,676],["ABCDEFGHIJKLMNOPQRSTUVWXYZ",false,676],["qwertyuiopasdfghjklzxcvbnm",false,1000]];
+  for(const [alpha,wrap,per] of seqAlpha){
+    let sb={len:0,s:0,e:0};
+    for(let i=0;i<runes.length;i++){
+      for(const dir of [1,-1]){
+        let j=i;
+        while(j+1<runes.length){
+          const pa=alpha.indexOf(runes[j]),pb=alpha.indexOf(runes[j+1]);
+          if(pa<0||pb<0)break;
+          let d=pb-pa;
+          if(wrap&&d===-9)d=1;if(wrap&&d===9)d=-1;
+          if(d===dir){j++}else break;
+        }
+        if(j-i+1>=3&&j-i+1>sb.len)sb={len:j-i+1,s:i,e:j+1};
+      }
+    }
+    if(sb.len>=3)m.push({s:sb.s,e:sb.e,typ:"secuencia",g:per*Math.pow(2,sb.len-3)});
+  }
+
+  // 4) years 1900-2099
+  for(let i=0;i+4<=runes.length;i++){
+    const y=+runes.slice(i,i+4).join("");
+    if(/^\d{4}$/.test(runes.slice(i,i+4).join(""))&&y>=1900&&y<=2099){m.push({s:i,e:i+4,typ:"año",g:199});break}
+  }
+
+  // 5) repeats: identical char runs and grouped repetitions
+  let rb={len:0,s:0,e:0};
+  for(let i=0;i<runes.length;i++){
+    let j=i;while(j<runes.length&&runes[j]===runes[i])j++;
+    if(j-i>=3&&j-i>rb.len)rb={len:j-i,s:i,e:j};
+  }
+  if(rb.len>=3)m.push({s:rb.s,e:rb.e,typ:"repetición",g:100*Math.pow(2,rb.len-3)});
+  let grb={len:0,s:0,e:0};
+  for(let seed=2;seed<=6&&seed*2<=runes.length;seed++){
+    for(let i=0;i+seed*2<=runes.length;i++){
+      const a=runes.slice(i,i+seed).join("");
+      if(runes.slice(i+seed,i+2*seed).join("")!==a)continue;
+      let j=i+2*seed;
+      while(j+seed<=runes.length&&runes.slice(j,j+seed).join("")===a)j+=seed;
+      if(j-i>grb.len)grb={len:j-i,s:i,e:j};
+    }
+  }
+  if(grb.len>=1)m.push({s:grb.s,e:grb.e,typ:"repetición",g:100*Math.pow(2,grb.len-3)});
+
+  return m;
+}
+
+function estimate(pw){
+  const runes=[...pw];
+  if(runes.length===0){return{scores:0,entropy:0,guesses:1,time:crackTime(1),pats:[],weakHas:false}}
+  const bt=Math.max(lg(M(pw)),1);
+  const dp=new Array(runes.length+1).fill(Infinity);
+  const pick=new Array(runes.length+1).fill(null);
+  dp[0]=0;
+  const matches=findMatches(pw);
+  for(let i=1;i<=runes.length;i++){
+    dp[i]=dp[i-1]+bt;
+    for(const mt of matches){
+      if(mt.e!==i)continue;
+      const cand=dp[mt.s]+lg(mt.g);
+      if(cand<dp[i]){dp[i]=cand;pick[i]=mt}
+    }
+  }
+  // rebuild chosen segments
+  const pats=[];
+  for(let i=1;i<=runes.length;i++)if(pick[i])pats.push({t:pick[i].typ,tok:runes.slice(pick[i].s,pick[i].e).join("")});
+  const entropy=dp[runes.length];
+  const guesses=Math.min(Math.pow(2,entropy),1e300);
+  const score=scoreFrom(guesses);
+  const weakHas=pats.some(p=>p.t==="palabra común"||p.t==="año"||p.t==="secuencia");
+  return{scores:score,entropy,guesses,time:crackTime(guesses),pats,weakHas};
 }
 
 /* ---- barra + textos ---- */
