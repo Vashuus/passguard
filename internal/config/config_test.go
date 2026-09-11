@@ -16,7 +16,7 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	}
 	got := Load()
 	if got != c {
-		t.Errorf("roundtrip falló: %+v != %+v", got, c)
+		t.Errorf("roundtrip failed: %+v != %+v", got, c)
 	}
 	if filepath.Base(Path()) != "config.json" {
 		t.Errorf("ruta inesperada: %s", Path())

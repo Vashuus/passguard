@@ -10,10 +10,10 @@ func TestEstimateWeakClassics(t *testing.T) {
 	for _, pw := range weak {
 		res := Estimate(pw)
 		if res.Score > 2 {
-			t.Errorf("%q: score=%d, entropía=%.1f, esperábamos débil", pw, res.Score, res.Entropy)
+			t.Errorf("%q: score=%d, entropy=%.1f, expected weak", pw, res.Score, res.Entropy)
 		}
 		if len(res.Patterns) == 0 {
-			t.Errorf("%q: no se detectó ningún patrón débil", pw)
+			t.Errorf("%q: no weak pattern detected", pw)
 		}
 	}
 }
@@ -26,7 +26,7 @@ func TestEstimateDigitSequences(t *testing.T) {
 	for _, pw := range weak {
 		res := Estimate(pw)
 		if res.Score > 2 {
-			t.Errorf("%q: score=%d, secuencia de dígitos debe ser débil", pw, res.Score)
+			t.Errorf("%q: score=%d, digit sequence must be weak", pw, res.Score)
 		}
 	}
 }
@@ -35,7 +35,7 @@ func TestEstimateYearsAndWordsWithDigits(t *testing.T) {
 	for _, pw := range []string{"1987", "2024", "paul2024", "password123", "qwerty123", "Batman123"} {
 		res := Estimate(pw)
 		if res.Score > 2 {
-			t.Errorf("%q: score=%d, debe ser débil", pw, res.Score)
+			t.Errorf("%q: score=%d, must be weak", pw, res.Score)
 		}
 	}
 }
@@ -43,7 +43,7 @@ func TestEstimateYearsAndWordsWithDigits(t *testing.T) {
 func TestEstimateLongRandomDigit(t *testing.T) {
 	res := Estimate("18983212")
 	if res.Score > 2 {
-		t.Errorf("18983212: score=%d, debe ser débil (dígitos puros)", res.Score)
+		t.Errorf("18983212: score=%d, must be weak (pure digits)", res.Score)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestEstimateKeyboardAndSequence(t *testing.T) {
 	for _, pw := range []string{"qwertyuiop", "zxcvbnm", "1234567890", "asdfghjkl", "qazwsxedc"} {
 		res := Estimate(pw)
 		if res.Score > 2 {
-			t.Errorf("%q: score=%d, debe ser débil por patrones", pw, res.Score)
+			t.Errorf("%q: score=%d, must be weak por patrones", pw, res.Score)
 		}
 	}
 }
@@ -61,7 +61,7 @@ func TestEstimateRepeated(t *testing.T) {
 	for _, pw := range []string{"abababab", "aaaaaaaaa", "12121212"} {
 		res := Estimate(pw)
 		if res.Score > 2 {
-			t.Errorf("%q: score=%d, repeticiones deberían penalizar", pw, res.Score)
+			t.Errorf("%q: score=%d, repetitions should penalize", pw, res.Score)
 		}
 	}
 }
@@ -70,7 +70,7 @@ func TestEstimateLeetDictionary(t *testing.T) {
 	pw := "p4ssw0rd"
 	res := Estimate(pw)
 	if res.Score > 2 {
-		t.Errorf("%q: l33t del diccionario debería ser débil, score=%d", pw, res.Score)
+		t.Errorf("%q: l33t dictionary form must be weak, score=%d", pw, res.Score)
 	}
 	found := false
 	for _, p := range res.Patterns {
@@ -79,7 +79,7 @@ func TestEstimateLeetDictionary(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("%q: no se detectó la palabra con l33t", pw)
+		t.Errorf("%q: l33t word not detected", pw)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestEstimateStrong(t *testing.T) {
 	for _, pw := range strong {
 		res := Estimate(pw)
 		if res.Score < 3 || res.Entropy < 80 {
-			t.Errorf("%q: score=%d entropía=%.1f, debe ser fuerte", pw, res.Score, res.Entropy)
+			t.Errorf("%q: score=%d entropy=%.1f, must be strong", pw, res.Score, res.Entropy)
 		}
 	}
 }
@@ -101,7 +101,7 @@ func TestEstimatePassphrase(t *testing.T) {
 	res := Estimate("correct-horse-battery-staple")
 	// words that are not all in our dictionary, so separation matters
 	if res.Score < 3 && res.Entropy < 60 {
-		t.Errorf("passphrase: score=%d entropía=%.1f", res.Score, res.Entropy)
+		t.Errorf("passphrase: score=%d entropy=%.1f", res.Score, res.Entropy)
 	}
 }
 
@@ -109,12 +109,12 @@ func TestEntropyMonotonicLength(t *testing.T) {
 	short := Estimate(strings.Repeat("xR9!", 3))
 	long := Estimate(strings.Repeat("xR9!", 6))
 	if long.Entropy <= short.Entropy {
-		t.Errorf("entropía debería crecer con la longitud: %f <= %f", long.Entropy, short.Entropy)
+		t.Errorf("entropy should grow with length: %f <= %f", long.Entropy, short.Entropy)
 	}
 }
 
 func TestCrackTimeFormatting(t *testing.T) {
-	if crackTime(1e2) != "instantáneo" {
+	if crackTime(1e2) != "instant" {
 		t.Errorf("crackTime(100) = %q", crackTime(1e2))
 	}
 }

@@ -59,7 +59,7 @@ func Generate(o Options) (string, error) {
 		o = DefaultOptions()
 	}
 	if o.Length < 8 {
-		return "", errors.New("longitud mínima: 8 caracteres")
+		return "", errors.New("minimum length: 8 characters")
 	}
 
 	alphabet := lower
@@ -167,15 +167,16 @@ func Generate(o Options) (string, error) {
 
 // wordlist for passphrases: memorable common words.
 var wordlist = []string{
-	"alce", "arpa", "barca", "brazo", "cabra", "cielo", "claro", "cobre",
-	"dulce", "dunas", "farol", "fuego", "globo", "hielo", "lago", "luna",
-	"mapa", "mar", "musgo", "nube", "oso", "papel", "pez", "puente",
-	"rama", "roca", "silla", "sol", "tigre", "torre", "uva", "viento",
-	"cedro", "chopo", "honesto", "lucero", "pluma", "senda", "trigo", "yunque",
-	"nieve", "paz", "rueda", "teja", "vaso", "aula", "ala", "bruma",
-	"coro", "draga", "espiga", "fresco", "gorra", "indio", "jabon", "karma",
-	"labio", "muelle", "ninfa", "oliva", "poro", "quisa", "remo", "silva",
-	"tenia", "urna", "vino", "yema", "zumo", "ancla", "brezo", "cieno",
+	"alder", "anvil", "arrow", "aspen", "badge", "birch", "bloom", "bramble",
+	"brook", "cairn", "cedar", "chalk", "cider", "clover", "cobalt", "coral",
+	"crag", "creek", "crest", "daisy", "delta", "dune", "ember", "falcon",
+	"fable", "fern", "flint", "forge", "fossil", "garnet", "gecko", "glacier",
+	"granite", "grove", "harbor", "hazel", "heather", "heron", "hollow", "ivy",
+	"jasper", "juniper", "kelp", "lagoon", "lantern", "larch", "ledge", "lilac",
+	"linen", "meadow", "mesa", "mist", "moss", "nimbus", "oak", "onyx",
+	"otter", "pebble", "pine", "plume", "prairie", "quartz", "quill", "raven",
+	"reed", "ridge", "sable", "sage", "sparrow", "spruce", "thistle", "tide",
+	"timber", "topaz", "valley", "willow", "yarrow", "zephyr",
 }
 
 // GeneratePassphrase builds a diceware-style phrase of n words.

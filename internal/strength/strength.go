@@ -145,18 +145,18 @@ func estimate(pw string) Result {
 	res.CrackTime = crackTime(res.Guesses)
 
 	if !hasDigit || len(runes) < 8 {
-		res.Warning = "Demasiado corta o sin dígitos: se puede adivinar por fuerza bruta."
+		res.Warning = "Too short or no digits: it can be brute-forced."
 		res.Suggestions = append(res.Suggestions,
-			"Usa al menos 12-16 caracteres.",
-			"Mezcla minúsculas, MAYÚSCULAS, dígitos y símbolos.",
-			"Evita palabras del diccionario y patrones de teclado (qwerty, 1234).")
+			"Use at least 12-16 characters.",
+			"Mix lowercase, UPPERCASE, digits and symbols.",
+			"Avoid dictionary words and keyboard patterns (qwerty, 1234).")
 	}
 	if hasSymbol && res.Entropy < 60 {
-		res.Suggestions = append(res.Suggestions, "Considera una frase-pase (passphrase) de 4+ palabras separadas por espacios.")
+		res.Suggestions = append(res.Suggestions, "Consider a passphrase of 4+ words separated by spaces.")
 	}
 	if len(runes) >= 12 && res.Score >= 3 {
-		res.Warning = "Contraseña sólida."
-		res.Suggestions = append(res.Suggestions, "Guárdala en un gestor de contraseñas (es imposible memorizar todas).")
+		res.Warning = "Solid password."
+		res.Suggestions = append(res.Suggestions, "Store it in a password manager (you can't memorize them all).")
 	}
 	return res
 }
@@ -188,9 +188,9 @@ func crackTime(g float64) string {
 	units := []struct {
 		v float64
 		s string
-	}{{60 * 60 * 24, "días"}, {60 * 60, "horas"}, {60, "minutos"}, {1, "segundos"}}
+	}{{60 * 60 * 24, "days"}, {60 * 60, "hours"}, {60, "minutes"}, {1, "seconds"}}
 	if sec < 1 {
-		return "instantáneo"
+		return "instant"
 	}
 	for _, u := range units {
 		if sec >= u.v {
@@ -199,12 +199,12 @@ func crackTime(g float64) string {
 		}
 	}
 	if sec > 365*24*3600*100 {
-		return ">100 años"
+		return ">100 years"
 	}
 	if sec > 24*3600*365 {
-		return fmt.Sprintf("%.1f años", sec/(24*3600*365))
+		return fmt.Sprintf("%.1f years", sec/(24*3600*365))
 	}
-	return "instantáneo"
+	return "instant"
 }
 
 // keepTop sorts patterns so lowest-guess (most severe) come first.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Vashuus/passguard/internal/breach"
@@ -17,17 +18,17 @@ func kp(r rune) tea.KeyMsg {
 
 func TestTypingLettersNeverTriggersActions(t *testing.T) {
 	m := newTestModel()
-	for _, r := range []rune("gqtrabc 123") { // incluye antiguos hotkeys
+	for _, r := range []rune("gqtrabc 123") { // includes the old single-letter hotkeys
 		m.Update(kp(r))
 	}
 	if m.quit {
-		t.Fatal("escribir letras no debe salir de la app")
+		t.Fatal("typing letters must not quit the app")
 	}
 	if m.genProg || m.passProg || m.leakProg {
-		t.Fatalf("escribir letras no debe disparar acciones: gen=%v pass=%v leak=%v", m.genProg, m.passProg, m.leakProg)
+		t.Fatalf("typing letters must not trigger actions: gen=%v pass=%v leak=%v", m.genProg, m.passProg, m.leakProg)
 	}
 	if m.pw != "gqtrabc 123" {
-		t.Fatalf("input distorsionado: %q", m.pw)
+		t.Fatalf("input corrupted: %q", m.pw)
 	}
 }
 
@@ -35,11 +36,11 @@ func TestCtrlKeysTriggerActions(t *testing.T) {
 	m := newTestModel()
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
 	if !m.genProg || cmd == nil {
-		t.Fatalf("ctrl+g debe generar (genProg=%v cmd=%v)", m.genProg, cmd != nil)
+		t.Fatalf("ctrl+g must generate (genProg=%v cmd=%v)", m.genProg, cmd != nil)
 	}
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	if !m.passProg || cmd == nil {
-		t.Fatalf("ctrl+p debe generar frase-pase (passProg=%v cmd=%v)", m.passProg, cmd != nil)
+		t.Fatalf("ctrl+p must generate a passphrase (passProg=%v cmd=%v)", m.passProg, cmd != nil)
 	}
 }
 
@@ -49,7 +50,7 @@ func TestEnterChecksBreachWithPassword(t *testing.T) {
 	m.Update(kp('b'))
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if !m.leakProg || cmd == nil {
-		t.Fatalf("enter con contraseña debe lanzar la consulta HIBP (leakProg=%v)", m.leakProg)
+		t.Fatalf("Enter with a password must run the HIBP query (leakProg=%v)", m.leakProg)
 	}
 }
 
@@ -57,7 +58,7 @@ func TestEnterWithoutPasswordDoesNothing(t *testing.T) {
 	m := newTestModel()
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if m.leakProg || cmd != nil {
-		t.Fatalf("enter sin contraseña no debe lanzar nada (leakProg=%v)", m.leakProg)
+		t.Fatalf("Enter without a password must do nothing (leakProg=%v)", m.leakProg)
 	}
 }
 
@@ -66,8 +67,23 @@ func TestQuitKeys(t *testing.T) {
 		m := newTestModel()
 		got, _ := m.Update(tea.KeyMsg{Type: key})
 		if !got.(*model).quit {
-			t.Fatalf("tecla %v debe salir", key)
+			t.Fatalf("key %v must quit", key)
 		}
+	}
+}
+
+func TestCopyKeyCopiesPassword(t *testing.T) {
+	m := newTestModel()
+	var copied string
+	m.copyFn = func(s string) error { copied = s; return nil }
+	m.Update(kp('h'))
+	m.Update(kp('i'))
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
+	if copied != "hi" {
+		t.Fatalf("ctrl+y must copy the typed password, got %q", copied)
+	}
+	if !strings.Contains(m.status, "copied") {
+		t.Fatalf("status should confirm the copy, got %q", m.status)
 	}
 }
 
@@ -77,6 +93,6 @@ func TestBackspaceRemovesLastRune(t *testing.T) {
 	m.Update(kp('i'))
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if m.pw != "h" {
-		t.Fatalf("backspace debe borrar el último carácter: %q", m.pw)
+		t.Fatalf("backspace must remove the last rune: %q", m.pw)
 	}
 }

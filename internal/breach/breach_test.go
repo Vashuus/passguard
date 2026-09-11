@@ -42,14 +42,14 @@ func (r *rt) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestCheckFound(t *testing.T) {
 	// sha1("password") = 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
-	// prefijo k-anónimo 5BAA6, sufijo 1E4C9B93F3F0682250B6CF8331B7EE68FD8
+	// k-anonymous prefix 5BAA6, suffix 1E4C9B93F3F0682250B6CF8331B7EE68FD8
 	c := newTestServer(t, "1E4C9B93F3F0682250B6CF8331B7EE68FD8:3010555\n")
 	rep, err := c.Check("password")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !rep.Found {
-		t.Error("debería aparecer en la filtración")
+		t.Error("should appear in the breach")
 	}
 	if rep.Count != 3010555 {
 		t.Errorf("count = %d, esperado 3010555", rep.Count)
@@ -67,7 +67,7 @@ func TestCheckNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	if rep.Found {
-		t.Error("no debería encontrarse")
+		t.Error("should not be found")
 	}
 }
 
@@ -76,6 +76,6 @@ func TestCheckTransportError(t *testing.T) {
 	c.hc.Timeout = 20 // ms; connection refused quickly
 	_, err := c.Check("password")
 	if err == nil {
-		t.Error("debería devolver error con transporte roto")
+		t.Error("should error with a broken transport")
 	}
 }

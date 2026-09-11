@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Vashuus/passguard/internal/clipboard"
 	"github.com/Vashuus/passguard/internal/console"
 	"github.com/Vashuus/passguard/internal/generator"
 	"github.com/Vashuus/passguard/internal/strength"
@@ -27,24 +28,39 @@ func bar(score int) string {
 func label(score int) string {
 	switch score {
 	case strength.ScoreTooGuessable:
-		return "INSERVIBLE"
+		return "INSECURE"
 	case strength.ScoreVeryGuessable:
-		return "MUY DÉBIL"
+		return "VERY WEAK"
 	case strength.ScoreSomewhatGuessable:
-		return "DÉBIL"
+		return "WEAK"
 	case strength.ScoreSafelyUnguessable:
-		return "BUENA"
+		return "GOOD"
 	default:
-		return "EXCELENTE"
+		return "EXCELLENT"
 	}
+}
+
+func printGenerated(pw string, res strength.Result) {
+	fmt.Println("Generated password:")
+	fmt.Printf("  %s\n", pw)
+	fmt.Printf("  Entropy: %.1f bits · Strength: %s\n", res.Entropy, label(res.Score))
+}
+
+func copyOrHint(pw string) error {
+	if err := clipboard.Copy(pw); err != nil {
+		fmt.Printf("  Copy to clipboard failed: %v (you can still copy it manually)\n", err)
+		return nil
+	}
+	fmt.Println("  Copied to the clipboard.")
+	return nil
 }
 
 func main() {
 	root := &cobra.Command{
 		Use:     "passguard",
-		Short:   "Generador y auditor de contraseñas difícilmente automatizables",
-		Long:    "PassGuard: genera y audita contraseñas con entropía alta y patrones\nresistidos, en terminal (TUI), ventana (GUI) o línea de comandos.",
-		Version: "0.2.0",
+		Short:   "AI-resistant password auditor and generator",
+		Long:    "PassGuard: generates and audits passwords with high entropy and\nresisted patterns, in a terminal (TUI), a window (GUI) or the CLI.",
+		Version: "0.3.0",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			gui, _ := cmd.Flags().GetBool("gui")
@@ -54,29 +70,29 @@ func main() {
 			return runTUI(cmd.Context())
 		},
 	}
-	root.Flags().Bool("gui", false, "abrir la interfaz gráfica (Fyne)")
+	root.Flags().Bool("gui", false, "open the graphical interface (Fyne)")
 
 	check := &cobra.Command{
-		Use:   "check \"contraseña\"",
-		Short: "Evaluar la resistencia de una contraseña",
+		Use:   "check \"password\"",
+		Short: "Evaluate the resistance of a password",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			res := strength.Estimate(args[0])
-			fmt.Printf("Entropía       %7.1f bits\n", res.Entropy)
-			fmt.Printf("Intentos       %7.0e\n", res.Guesses)
-			fmt.Printf("Tiempo crack   %s (offline rápido)\n", res.CrackTime)
-			fmt.Printf("Fuerza         %s [%s]\n", label(res.Score), bar(res.Score))
+			fmt.Printf("Entropy       %7.1f bits\n", res.Entropy)
+			fmt.Printf("Guesses       %7.0e\n", res.Guesses)
+			fmt.Printf("Crack time    %s (fast offline)\n", res.CrackTime)
+			fmt.Printf("Strength      %s [%s]\n", label(res.Score), bar(res.Score))
 			if res.Warning != "" {
-				fmt.Printf("Nota: %s\n", res.Warning)
+				fmt.Printf("Note: %s\n", res.Warning)
 			}
 			if len(res.Patterns) > 0 {
-				fmt.Println("Patrones detectados:")
+				fmt.Println("Detected patterns:")
 				for _, p := range res.Patterns {
 					fmt.Printf("  - %-10s %q (%.1f bits)\n", p.Type, p.Token, p.Entropy)
 				}
 			}
 			for _, s := range res.Suggestions {
-				fmt.Println("  Sugerencia:", s)
+				fmt.Println("  Suggestion:", s)
 			}
 			return nil
 		},
@@ -88,10 +104,11 @@ func main() {
 		digs    bool
 		symbols bool
 		similar bool
+		copyOut bool
 	)
 	gen := &cobra.Command{
 		Use:   "gen",
-		Short: "Generar contraseña segura (CSPRNG + revisión)",
+		Short: "Generate a strong password (CSPRNG + review)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o := generator.Options{
 				Length:     length,
@@ -107,21 +124,23 @@ func main() {
 				return err
 			}
 			res := strength.Estimate(pw)
-			fmt.Println("Contraseña generada:")
-			fmt.Printf("  %s\n", pw)
-			fmt.Printf("  Entropía: %.1f bits · Fuerza: %s\n", res.Entropy, label(res.Score))
+			printGenerated(pw, res)
+			if copyOut {
+				return copyOrHint(pw)
+			}
 			return nil
 		},
 	}
-	gen.Flags().IntVarP(&length, "length", "l", 20, "longitud (mínimo 12)")
-	gen.Flags().BoolVar(&upper, "upper", true, "incluir mayúsculas")
-	gen.Flags().BoolVar(&digs, "digits", true, "incluir dígitos")
-	gen.Flags().BoolVar(&symbols, "symbols", true, "incluir símbolos")
-	gen.Flags().BoolVar(&similar, "similar", false, "permitir caracteres similares (1 l I O 0)")
+	gen.Flags().IntVarP(&length, "length", "l", 20, "length (minimum 12)")
+	gen.Flags().BoolVar(&upper, "upper", true, "include uppercase")
+	gen.Flags().BoolVar(&digs, "digits", true, "include digits")
+	gen.Flags().BoolVar(&symbols, "symbols", true, "include symbols")
+	gen.Flags().BoolVar(&similar, "similar", false, "allow similar characters (1 l I O 0)")
+	gen.Flags().BoolVarP(&copyOut, "copy", "c", false, "copy the result to the clipboard")
 
 	passphrase := &cobra.Command{
 		Use:   "passphrase",
-		Short: "Generar frase-pase memorable (diceware)",
+		Short: "Generate a memorable passphrase (diceware)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			n, _ := cmd.Flags().GetInt("words")
 			pw, err := generator.GeneratePassphrase(n)
@@ -129,17 +148,19 @@ func main() {
 				return err
 			}
 			res := strength.Estimate(pw)
-			fmt.Println("Frase-pase:")
-			fmt.Printf("  %s\n", pw)
-			fmt.Printf("  Entropía: %.1f bits · Fuerza: %s\n", res.Entropy, label(res.Score))
+			printGenerated(pw, res)
+			if copyOut {
+				return copyOrHint(pw)
+			}
 			return nil
 		},
 	}
-	passphrase.Flags().IntP("words", "w", 4, "número de palabras")
+	passphrase.Flags().IntP("words", "w", 4, "number of words")
+	passphrase.Flags().BoolVarP(&copyOut, "copy", "c", false, "copy the result to the clipboard")
 
 	leak := &cobra.Command{
-		Use:   "leak \"contraseña\"",
-		Short: "Comprobar si apareció en una filtración (HIBP k-anónimo)",
+		Use:   "leak \"password\"",
+		Short: "Check whether it appeared in a breach (HIBP k-anonymous)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			rep, err := breachClient().Check(args[0])
@@ -147,10 +168,10 @@ func main() {
 				return err
 			}
 			if rep.Found {
-				fmt.Printf("¡ENCONTRADA! %d veces en bases de datos de filtraciones.\n", rep.Count)
-				fmt.Println("Nunca la uses. Genera una nueva con `passguard gen`.")
+				fmt.Printf("FOUND! %d times in breach databases.\n", rep.Count)
+				fmt.Println("Never use it. Generate a new one with `passguard gen`.")
 			} else {
-				fmt.Println("No aparece en las filtraciones conocidas de HIBP. Bien.")
+				fmt.Println("Not found in known HIBP breaches. Good.")
 			}
 			return nil
 		},

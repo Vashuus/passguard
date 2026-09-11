@@ -55,7 +55,7 @@ func runGUI(ctx context.Context) error {
 	w.Resize(fyne.NewSize(560, 460))
 
 	entry := widget.NewPasswordEntry()
-	entry.SetPlaceHolder("Escribe una contraseña para auditar")
+	entry.SetPlaceHolder("Type a password to audit")
 
 	gauge := canvas.NewRectangle(color.NRGBA{R: 0x89, G: 0xb4, B: 0xfa, A: 0xcc})
 	gauge.SetMinSize(fyne.NewSize(0, 14))
@@ -70,11 +70,11 @@ func runGUI(ctx context.Context) error {
 		final := 0.3 + 0.7*float32(res.Score)/4
 		gauge.FillColor = gaugeColor(res.Score)
 		gauge.Resize(fyne.NewSize(500*final, 14))
-		forceLabel.SetText(fmt.Sprintf("Fuerza: %s  ·  Entropía: %.1f bits  ·  Tiempo de crack: %s",
+		forceLabel.SetText(fmt.Sprintf("Strength: %s · Entropy: %.1f bits · Crack time: %s",
 			label(res.Score), res.Entropy, res.CrackTime))
 		details := ""
 		for _, p := range res.Patterns {
-			details += fmt.Sprintf("Patrón %q de tipo %s (%.1f bits)\n", p.Token, p.Type, p.Entropy)
+			details += fmt.Sprintf("Pattern %q of type %s (%.1f bits)\n", p.Token, p.Type, p.Entropy)
 		}
 		for _, s := range res.Suggestions {
 			details += "» " + s + "\n"
@@ -86,16 +86,16 @@ func runGUI(ctx context.Context) error {
 
 	length := widget.NewSlider(12, 64)
 	length.SetValue(20)
-	lengthLabel := widget.NewLabel("Longitud: 20")
-	length.OnChanged = func(v float64) { lengthLabel.SetText(fmt.Sprintf("Longitud: %d", int(v))) }
+	lengthLabel := widget.NewLabel("Length: 20")
+	length.OnChanged = func(v float64) { lengthLabel.SetText(fmt.Sprintf("Length: %d", int(v))) }
 
-	withUpper := widget.NewCheck("Mayúsculas", nil)
+	withUpper := widget.NewCheck("Uppercase", nil)
 	withUpper.SetChecked(true)
-	withDigits := widget.NewCheck("Dígitos", nil)
+	withDigits := widget.NewCheck("Digits", nil)
 	withDigits.SetChecked(true)
-	withSymbols := widget.NewCheck("Símbolos", nil)
+	withSymbols := widget.NewCheck("Symbols", nil)
 	withSymbols.SetChecked(true)
-	noSimilar := widget.NewCheck("Evitar 1 l I O 0", nil)
+	noSimilar := widget.NewCheck("Avoid 1 l I O 0", nil)
 	noSimilar.SetChecked(true)
 
 	genButton := widget.NewButton("Generar", func() {
@@ -115,7 +115,7 @@ func runGUI(ctx context.Context) error {
 		}
 		entry.SetText(pw)
 		w.Clipboard().SetContent(pw)
-		leakLabel.SetText("Generada y copiada al portapapeles ✓")
+		leakLabel.SetText("Generated and copied to the clipboard ✓")
 	})
 	passButton := widget.NewButton("Frase-pase", func() {
 		pw, err := generator.GeneratePassphrase(4)
@@ -125,14 +125,14 @@ func runGUI(ctx context.Context) error {
 		}
 		entry.SetText(pw)
 		w.Clipboard().SetContent(pw)
-		leakLabel.SetText("Frase-pase copiada al portapapeles ✓")
+		leakLabel.SetText("Passphrase copied to the clipboard ✓")
 	})
 
-	leakButton := widget.NewButton("Comprobar filtraciones (HIBP)", func() {
+	leakButton := widget.NewButton("Check breaches (HIBP)", func() {
 		if entry.Text == "" {
 			return
 		}
-		leakLabel.SetText("Consultando…")
+		leakLabel.SetText("Checking…")
 		go func() {
 			rep, err := breach.New().Check(entry.Text)
 			a.SendNotification(&fyne.Notification{
@@ -147,7 +147,7 @@ func runGUI(ctx context.Context) error {
 	optRow := container.NewHBox(withUpper, withDigits, withSymbols, noSimilar, length)
 
 	content := container.NewVBox(
-		widget.NewLabel("🔐  PassGuard — Auditor y generador de contraseñas"),
+		widget.NewLabel("🔐  PassGuard — Password auditor & generator"),
 		entry,
 		gauge,
 		forceLabel,
@@ -180,7 +180,7 @@ func leakMessage(rep breach.CheckReport, err error) string {
 		return "error consultando HIBP: " + err.Error()
 	}
 	if rep.Found {
-		return fmt.Sprintf("¡Aparece en %d filtraciones! No la uses.", rep.Count)
+		return fmt.Sprintf("Appears in %d breaches! Don't use it.", rep.Count)
 	}
-	return "No aparece en filtraciones conocidas de HIBP. ✓"
+	return "Not in known HIBP breaches. ✓"
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Vashuus/passguard/internal/breach"
+	"github.com/Vashuus/passguard/internal/clipboard"
 	"github.com/Vashuus/passguard/internal/generator"
 	"github.com/Vashuus/passguard/internal/strength"
 	"github.com/charmbracelet/bubbletea"
@@ -50,11 +51,12 @@ type model struct {
 	leakProg bool
 	genProg  bool
 	passProg bool
+	copyFn   func(string) error
 	breach   *breach.Client
 }
 
 func initialModel(br *breach.Client) *model {
-	m := &model{breach: br}
+	m := &model{breach: br, copyFn: clipboard.Copy}
 	m.recompute()
 	return m
 }
@@ -87,20 +89,30 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.pw != "" && !m.leakProg {
 				m.leakProg = true
-				m.status = "consultando filtraciones…"
+				m.status = "checking breaches…"
 				return m, leakCmd(m)
 			}
 		case "ctrl+g":
 			if !m.genProg {
 				m.genProg = true
-				m.status = "generando…"
+				m.status = "generating…"
 				return m, genCmd()
 			}
 		case "ctrl+p":
 			if !m.passProg {
 				m.passProg = true
-				m.status = "generando frase-pase…"
+				m.status = "generating passphrase…"
 				return m, passCmd()
+			}
+		case "ctrl+y":
+			if m.pw == "" {
+				m.status = "nothing to copy."
+				break
+			}
+			if err := m.copyFn(m.pw); err != nil {
+				m.status = "copy failed: " + err.Error()
+			} else {
+				m.status = "password copied to the clipboard."
 			}
 		}
 	case leakResultMsg:
@@ -109,9 +121,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.status = "error: " + msg.err.Error()
 		} else if msg.rep.Found {
-			m.status = fmt.Sprintf("¡Aparece en filtraciones (%d veces)!", msg.rep.Count)
+			m.status = fmt.Sprintf("Appears in breaches (%d times)!", msg.rep.Count)
 		} else {
-			m.status = "No aparece en filtraciones conocidas (HIBP)."
+			m.status = "Not in known HIBP breaches."
 		}
 	case genResultMsg:
 		m.genProg = false
@@ -120,7 +132,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.pw = msg.pw
 			m.recompute()
-			m.status = "Contraseña generada con CSPRNG."
+			m.status = "Password generated with the CSPRNG."
 		}
 	case passResultMsg:
 		m.passProg = false
@@ -129,7 +141,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.pw = msg.pw
 			m.recompute()
-			m.status = "Frase-pase generada."
+			m.status = "Passphrase generated."
 		}
 	}
 	return m, nil
@@ -158,12 +170,26 @@ func passCmd() tea.Cmd {
 	}
 }
 
+func matchName(t string) string {
+	names := map[string]string{
+		"dict":      "dictionary word",
+		"repeat":    "repetition",
+		"seq_num":   "numeric sequence",
+		"seq_alpha": "alphabetic sequence",
+		"keyboard":  "keyboard pattern",
+	}
+	if n, ok := names[t]; ok {
+		return n
+	}
+	return t
+}
+
 func (m *model) View() string {
 	if m.quit {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("🔐  PassGuard — Auditor de contraseñas\n"))
+	b.WriteString(titleStyle.Render("🔐  PassGuard — Password auditor\n"))
 
 	// input field
 	f := lipgloss.NewStyle().
@@ -171,8 +197,7 @@ func (m *model) View() string {
 		BorderForeground(lipgloss.Color("#F5C2E7")).
 		Padding(0, 1).
 		Width(48)
-	display := m.pw
-	b.WriteString(f.Render(display) + "\n\n")
+	b.WriteString(f.Render(m.pw) + "\n\n")
 
 	// strength block
 	res := m.force
@@ -186,26 +211,14 @@ func (m *model) View() string {
 	default:
 		gaugeStyle = gaugeStyle.Foreground(lipgloss.Color("#A6E3A1"))
 	}
-	b.WriteString("Fuerza   " + gaugeStyle.Render(gauge+" "+label(res.Score)) + "\n")
-	b.WriteString(fmt.Sprintf("Entropía %.1f bits · Tiempo de crack (offline): %s\n", res.Entropy, res.CrackTime))
+	b.WriteString("Strength " + gaugeStyle.Render(gauge+" "+label(res.Score)) + "\n")
+	b.WriteString(fmt.Sprintf("Entropy  %.1f bits · Crack time (fast offline): %s\n", res.Entropy, res.CrackTime))
 
 	if len(res.Patterns) > 0 {
-		b.WriteString(dim.Render("Patrones: "))
-		names := map[string]string{
-			"dict":      "palabra común",
-			"repeat":    "repetición",
-			"seq_num":   "secuencia numérica",
-			"seq_alpha": "secuencia alfabética",
-			"seq_kbd":   "patrón de teclado",
-			"keyboard":  "patrón de teclado",
-		}
+		b.WriteString(dim.Render("Patterns: "))
 		parts := []string{}
 		for _, p := range res.Patterns {
-			n := names[p.Type]
-			if n == "" {
-				n = p.Type
-			}
-			parts = append(parts, fmt.Sprintf("%s(%q)", n, p.Token))
+			parts = append(parts, fmt.Sprintf("%s(%q)", matchName(p.Type), p.Token))
 		}
 		b.WriteString(strings.Join(parts, ", ") + "\n")
 	}
@@ -215,11 +228,11 @@ func (m *model) View() string {
 
 	// breach block
 	if m.leakProg {
-		b.WriteString(dim.Render("◆ consultando HIBP (k-anónimo)…\n"))
+		b.WriteString(dim.Render("◆ checking HIBP (k-anonymous)…\n"))
 	} else if m.pw == "" {
-		b.WriteString(dim.Render(" · Escribe una contraseña y pulsa Enter para verificar filtraciones (HIBP)\n"))
+		b.WriteString(dim.Render(" · Type a password and press Enter to check breaches (HIBP)\n"))
 	} else if m.rep.Hash == "" {
-		b.WriteString(dim.Render(" · Enter = verificar filtraciones (HIBP, k-anónimo)\n"))
+		b.WriteString(dim.Render(" · Enter = check breaches (HIBP, k-anonymous)\n"))
 	} else if m.rep.Found {
 		b.WriteString(red.Render("⚠ " + m.status + "\n"))
 	} else {
@@ -231,7 +244,7 @@ func (m *model) View() string {
 		b.WriteString(purple.Render("ℹ " + m.status + "\n"))
 	}
 	b.WriteString("\n" + dim.Render(
-		"Ctrl+G = generar   ·   Ctrl+P = frase-pase   ·   Enter = HIBP   ·   Ctrl+Q/Esc = salir"))
+		"Ctrl+G generate   ·   Ctrl+P passphrase   ·   Ctrl+Y copy   ·   Enter HIBP   ·   Ctrl+Q/Esc quit"))
 
 	return b.String()
 }

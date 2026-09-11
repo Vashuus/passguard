@@ -63,7 +63,7 @@ func (c *Client) Check(pw string) (CheckReport, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return rep, fmt.Errorf("pwnedpasswords: estado %s", resp.Status)
+		return rep, fmt.Errorf("pwnedpasswords: status %s", resp.Status)
 	}
 
 	sc := bufio.NewScanner(resp.Body)
@@ -83,7 +83,7 @@ func (c *Client) Check(pw string) (CheckReport, error) {
 		}
 	}
 	if err := sc.Err(); err != nil && err != io.EOF {
-		return rep, fmt.Errorf("pwnedpasswords: lectura: %w", err)
+		return rep, fmt.Errorf("pwnedpasswords: reading response: %w", err)
 	}
 	return rep, nil
 }

@@ -1,22 +1,22 @@
 # Security Policy
 
-## Al reportar una vulnerabilidad
+## Reporting a vulnerability
 
-**NO abras un issue público** con contraseñas o hashes de prueba reales. Usa
+**Do NOT open a public issue** containing real credentials or test hashes. Use
 [GitHub Security Advisories](https://github.com/Vashuus/passguard/security/advisories/new)
-o contacta al mantenedor por un canal privado.
+or contact the maintainer through a private channel.
 
-## Alcance
+## Scope
 
-- `internal/strength` — calidad de la estimación de entropía.
-- `internal/generator` — uso correcto de CSPRNG (`crypto/rand`).
-- `internal/breach` — garantía k-anónima (que la contraseña nunca salga del host).
-- `cmd/passguard` — manejo de entrada y de la CLI.
-- `docs/` — que la web jamás envíe la contraseña en claro.
+- `internal/strength` — quality of the entropy estimation.
+- `internal/generator` — correct use of the CSPRNG (`crypto/rand`).
+- `internal/breach` — k-anonymity guarantee (the password never leaves the host).
+- `internal/clipboard` — provisioning the system clipboard without exposing secrets.
+- `cmd/passguard` — input handling and the CLI/GUI/TUI layer.
+- `docs/` — the web app must never transmit the plaintext password.
 
-## Compromisos
+## Commitments
 
-Este proyecto **nunca** transmite tu contraseña; la web y el CLI solo envían,
-en el caso del chequeo de filtraciones, el prefijo truncado del hash SHA-1.
-Cualquier cambio que rompa esa promesa se considera una vulnerabilidad de
-severidad crítica.
+This project **never transmits your password**; for the breach check the web and
+CLI only send the truncated SHA-1 hash prefix. Any change that breaks that promise
+is considered a critical-severity vulnerability.
