@@ -34,25 +34,27 @@ type genResultMsg struct {
 	err error
 }
 
-// ---- input component ----
+type passResultMsg struct {
+	pw  string
+	err error
+}
 
 // ---- model ----
 
 type model struct {
-	quit        bool
-	pw          string
-	show        bool
-	force       strength.Result
-	rep         breach.CheckReport
-	checkBreach bool
-	status      string
-	leakProg    bool
-	genProg     bool
-	breach      *breach.Client
+	quit     bool
+	pw       string
+	force    strength.Result
+	rep      breach.CheckReport
+	status   string
+	leakProg bool
+	genProg  bool
+	passProg bool
+	breach   *breach.Client
 }
 
 func initialModel(br *breach.Client) *model {
-	m := &model{breach: br, show: true}
+	m := &model{breach: br}
 	m.recompute()
 	return m
 }
@@ -74,10 +76,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.quit = true
-			return m, tea.Quit
-		case "q":
+		case "ctrl+c", "esc", "ctrl+q":
 			m.quit = true
 			return m, tea.Quit
 		case "backspace":
@@ -86,24 +85,23 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.recompute()
 		case "enter":
-			if m.checkBreach && !m.leakProg {
+			if m.pw != "" && !m.leakProg {
 				m.leakProg = true
 				m.status = "consultando filtraciones…"
 				return m, leakCmd(m)
 			}
-		case " ":
-			m.checkBreach = !m.checkBreach
-			if !m.checkBreach {
-				m.status = ""
-			}
-		case "g":
+		case "ctrl+g":
 			if !m.genProg {
 				m.genProg = true
 				m.status = "generando…"
 				return m, genCmd()
 			}
-		case "t", "r":
-			m.show = !m.show
+		case "ctrl+p":
+			if !m.passProg {
+				m.passProg = true
+				m.status = "generando frase-pase…"
+				return m, passCmd()
+			}
 		}
 	case leakResultMsg:
 		m.leakProg = false
@@ -123,6 +121,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pw = msg.pw
 			m.recompute()
 			m.status = "Contraseña generada con CSPRNG."
+		}
+	case passResultMsg:
+		m.passProg = false
+		if msg.err != nil {
+			m.status = "error: " + msg.err.Error()
+		} else {
+			m.pw = msg.pw
+			m.recompute()
+			m.status = "Frase-pase generada."
 		}
 	}
 	return m, nil
@@ -144,6 +151,13 @@ func genCmd() tea.Cmd {
 	}
 }
 
+func passCmd() tea.Cmd {
+	return func() tea.Msg {
+		pw, err := generator.GeneratePassphrase(4)
+		return passResultMsg{pw: pw, err: err}
+	}
+}
+
 func (m *model) View() string {
 	if m.quit {
 		return ""
@@ -158,9 +172,6 @@ func (m *model) View() string {
 		Padding(0, 1).
 		Width(48)
 	display := m.pw
-	if !m.show && display != "" {
-		display = strings.Repeat("•", len(display))
-	}
 	b.WriteString(f.Render(display) + "\n\n")
 
 	// strength block
@@ -203,20 +214,16 @@ func (m *model) View() string {
 	}
 
 	// breach block
-	if m.checkBreach {
-		if m.leakProg {
-			b.WriteString(dim.Render("◆ consultando HIBP (k-anónimo)…\n"))
-		} else if m.force.Score >= strength.ScoreSafelyUnguessable && m.rep.Hash != "" {
-			if m.rep.Found {
-				b.WriteString(red.Render("⚠ " + m.status + "\n"))
-			} else {
-				b.WriteString(green.Render("✓ " + m.status + "\n"))
-			}
-		} else {
-			b.WriteString(dim.Render(" (pulsa Enter para consultar filtraciones)\n"))
-		}
+	if m.leakProg {
+		b.WriteString(dim.Render("◆ consultando HIBP (k-anónimo)…\n"))
+	} else if m.pw == "" {
+		b.WriteString(dim.Render(" · Escribe una contraseña y pulsa Enter para verificar filtraciones (HIBP)\n"))
+	} else if m.rep.Hash == "" {
+		b.WriteString(dim.Render(" · Enter = verificar filtraciones (HIBP, k-anónimo)\n"))
+	} else if m.rep.Found {
+		b.WriteString(red.Render("⚠ " + m.status + "\n"))
 	} else {
-		b.WriteString(dim.Render(" · Activá el chequeo HIBP con espacio (usa Enter)\n"))
+		b.WriteString(green.Render("✓ " + m.status + "\n"))
 	}
 
 	// status + help
@@ -224,7 +231,7 @@ func (m *model) View() string {
 		b.WriteString(purple.Render("ℹ " + m.status + "\n"))
 	}
 	b.WriteString("\n" + dim.Render(
-		"Teclas: espacio = HIBP  ·  g = generar  ·  t = mostrar/ocultar  ·  q/esc = salir"))
+		"Ctrl+G = generar   ·   Ctrl+P = frase-pase   ·   Enter = HIBP   ·   Ctrl+Q/Esc = salir"))
 
 	return b.String()
 }

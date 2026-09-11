@@ -20,11 +20,16 @@
     display:flex; justify-content:center; padding:40px 16px 80px;
   }
   main{max-width:680px;width:100%}
-  h1{font-size:1.9rem;letter-spacing:.5px}
+  h1{font-size:1.9rem;letter-spacing:.5px;margin-bottom:4px}
   h1 .dot{color:var(--mauve)}
-  .sub{color:var(--subtext);margin-top:-8px}
+  header .sub{color:var(--subtext);margin:0 0 4px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .pill{background:var(--surface1);color:var(--subtext);border:1px solid var(--surface2);
+        font-size:.75rem;padding:4px 12px;border-radius:99px}
+  .pill.ok{color:var(--green);border-color:var(--green)}
   .card{background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:22px;margin-top:22px}
   label{font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--subtext)}
+  label .sub{text-transform:none;letter-spacing:0;color:var(--overlay)}
   input[type=text]{
     width:100%;margin:8px 0 4px;padding:14px;border-radius:10px;border:1px solid var(--surface2);
     background:var(--mantle);color:var(--text);font-size:1.2rem;font-family:ui-monospace,monospace;
@@ -33,6 +38,7 @@
   .bar{height:12px;background:var(--surface1);border-radius:99px;overflow:hidden;margin-top:12px}
   .bar i{display:block;height:100%;width:0%;border-radius:99px;transition:width .25s,background .25s}
   .meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--subtext);font-size:.85rem;margin-top:8px}
+  .empty{color:var(--overlay);font-size:.85rem;margin:10px 0 0}
   details{margin-top:10px;color:var(--subtext);font-size:.9rem}
   details summary{cursor:pointer;color:var(--mauve)}
   details ul{margin-left:18px;padding-left:6px}
@@ -43,6 +49,8 @@
   }
   button.ghost{background:var(--surface1);color:var(--text)}
   button:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .bstatus{margin-top:12px;font-size:.9rem;min-height:1.3em;color:var(--text)}
   .opts{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;color:var(--subtext)}
   .opts label{text-transform:none;letter-spacing:0;font-size:.9rem;display:flex;gap:6px;align-items:center}
   input[type=range]{accent-color:var(--mauve)}
@@ -50,16 +58,32 @@
   .out{display:none;margin-top:8px;padding:14px;border-radius:10px;background:var(--crust);
        border:1px solid var(--surface1);font-family:ui-monospace,monospace;word-break:break-all;font-size:1.05rem}
   .badge{padding:3px 10px;border-radius:99px;font-weight:700;font-size:.8rem;background:var(--surface1)}
-  .foot{margin-top:34px;color:var(--overlay);font-size:.8rem;text-align:center}
+  .levels{background:linear-gradient(180deg,var(--surface1),var(--surface0));border-style:dashed}
+  .lvls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .lvl{font-size:.72rem;font-weight:800;letter-spacing:.4px;padding:6px 12px;border-radius:99px;color:var(--crust)}
+  .lvl.l0,.lvl.l1{background:var(--red)}
+  .lvl.l2{background:var(--yellow);color:var(--crust)}
+  .lvl.l3{background:var(--teal);color:var(--crust)}
+  .lvl.l4{background:var(--green)}
+  .lvdesc{width:100%;color:var(--overlay);font-size:.78rem;margin-left:2px}
+  .foot{margin-top:30px;color:var(--overlay);font-size:.8rem;text-align:center}
   .foot a{color:var(--lavender)}
   .warn{color:var(--red)} .ok{color:var(--green)}
-  .kbd{background:var(--surface1);border-radius:6px;padding:1px 7px;font-family:ui-monospace,monospace}
+  .kbd{background:var(--surface1);border-radius:6px;padding:1px 7px;font-family:ui-monospace,monospace;border:1px solid var(--surface2)}
 </style>
 </head>
 <body>
 <main>
-  <h1>🔐 PassGuard<span class="dot">.</span></h1>
-  <p class="sub">Auditor y generador de contraseñas de alta entropía que resisten a la automatización con IA.</p>
+  <header>
+    <h1>🔐 PassGuard<span class="dot">.</span></h1>
+    <p class="sub">Auditor y generador de contraseñas de alta entropía que resisten a la automatización con IA.</p>
+    <div class="pills">
+      <span class="pill ok">100% local · sin servidor</span>
+      <span class="pill">SHA-1 k-anónimo (HIBP)</span>
+      <span class="pill">CSPRNG del navegador</span>
+      <span class="pill">Código abierto</span>
+    </div>
+  </header>
 
   <section class="card">
     <label for="pw">Auditar una contraseña</label>
@@ -70,12 +94,17 @@
       <span id="entropy">Entropía: — bits</span>
       <span id="time">Tiempo de crack: —</span>
     </div>
+    <p id="empty" class="empty">Empieza a escribir: el análisis corre en tu navegador, sin enviar nada a ningún servidor.</p>
     <details id="patterns"><summary>Patrones detectados</summary><ul id="plist"></ul></details>
     <details><summary>Recomendaciones</summary><ul id="tips"></ul></details>
+    <div class="controls">
+      <button id="bbreach" disabled>Verificar filtraciones (HIBP)</button>
+    </div>
+    <p id="bstatus" class="bstatus">—</p>
   </section>
 
   <section class="card">
-    <label>Generar contraseña (CSPRNG del navegador)</label>
+    <label>Generar contraseña <span class="sub">(CSPRNG del navegador)</span></label>
     <div class="opts">
       <span>Longitud</span>
       <input type="range" id="len" min="12" max="64" value="20">
@@ -89,12 +118,23 @@
     </div>
     <div class="controls">
       <button id="gen">Generar</button>
-      <button id="copy" class="ghost">Copiar</button>
       <button id="pass" class="ghost">Frase-pase</button>
-      <button id="breach" class="ghost">Verificar filtraciones (HIBP)</button>
+      <button id="copy" class="ghost">Copiar</button>
     </div>
     <div class="out" id="out"></div>
     <div class="meta"><span id="gstatus">—</span></div>
+  </section>
+
+  <section class="card levels">
+    <label>Escala de fuerza</label>
+    <div class="lvls">
+      <span class="lvl l0">INSERVIBLE</span>
+      <span class="lvl l1">MUY DÉBIL</span>
+      <span class="lvl l2">DÉBIL</span>
+      <span class="lvl l3">BUENA</span>
+      <span class="lvl l4">EXCELENTE</span>
+      <span class="lvdesc">Basada en intentos de adivinación: &lt;1K · &lt;1M · &lt;100M · &lt;10G · ≥10G</span>
+    </div>
   </section>
 
   <p class="foot">
@@ -263,8 +303,14 @@ function render(res){
   if(res.pats.length&&pw.value.length>=12)t.push("Evita repeticiones y secuencias (abc, 1234, qwerty).");
   if(res.scores>=3)t.push("Guárdala en un gestor de contraseñas.");
   t.forEach(x=>{const li=document.createElement("li");li.textContent=x;tips.appendChild(li)});
+  const hasText=pw.value.length>0;
+  $("#empty").style.display=hasText?"none":"block";
+  $("#bbreach").disabled=!hasText;
 }
-$("#pw").addEventListener("input",()=>render(estimate($("#pw").value)));
+$("#pw").addEventListener("input",()=>{
+  render(estimate($("#pw").value));
+  $("#bstatus").textContent="";
+});
 
 /* ---- generador CSPRNG ---- */
 const LOW="abcdefghijkmnopqrstuvwxyz",UP="ABCDEFGHJKLMNPQRSTUVWXYZ",
@@ -309,11 +355,12 @@ $("#pass").addEventListener("click",()=>{
   const r=estimate(generated);
   $("#gstatus").textContent=`Frase-pase · Entropía ${r.entropy.toFixed(1)} bits · ${LBL[r.scores]}`;
 });
-/* ---- HIBP k-anónimo ---- */
-$("#breach").addEventListener("click",async()=>{
-  const pw=generated||$("#pw").value;
-  if(!pw){$("#gstatus").textContent="Primero genera o escribe una contraseña.";return}
-  $("#gstatus").textContent="Consultando HIBP…";
+/* ---- HIBP k-anónimo (desde el auditor) ---- */
+$("#bbreach").addEventListener("click",async()=>{
+  const pw=$("#pw").value;
+  if(!pw){$("#bstatus").textContent="Escribe una contraseña primero.";return}
+  const btn=$("#bbreach");btn.disabled=true;
+  $("#bstatus").innerHTML=`<span class="pill ok">Consultando HIBP (k-anónimo)…</span>`;
   const buf=await crypto.subtle.digest("SHA-1",new TextEncoder().encode(pw));
   const hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
   try{
@@ -321,9 +368,10 @@ $("#breach").addEventListener("click",async()=>{
     const txt=await r.text();
     const suf=hex.slice(5);
     const hit=txt.split(/\r?\n/).find(l=>l.startsWith(suf+":"));
-    if(hit){const n=+hit.split(":")[1];$("#gstatus").innerHTML=`<span class="warn">⚠ Aparece en ${n} filtraciones — ¡no la uses!</span>`}
-    else $("#gstatus").innerHTML=`<span class="ok">✓ No aparece en filtraciones conocidas de HIBP.</span>`;
-  }catch(e){$("#gstatus").textContent="Error al consultar HIBP: "+e.message}
+    if(hit){const n=+hit.split(":")[1];$("#bstatus").innerHTML=`<span class="warn">⚠ Aparece en ${n} filtraciones — ¡no la uses!</span>`}
+    else $("#bstatus").innerHTML=`<span class="ok">✓ No aparece en filtraciones conocidas de HIBP.</span>`;
+  }catch(e){$("#bstatus").textContent="Error al consultar HIBP: "+e.message}
+  btn.disabled=false;
 });
 render(estimate(""));
 </script>

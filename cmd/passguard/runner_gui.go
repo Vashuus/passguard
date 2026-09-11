@@ -157,13 +157,8 @@ func runGUI(ctx context.Context) error {
 		leakLabel,
 	)
 	w.SetContent(container.NewPadded(content))
-	w.Show()
-
-	<-ctx.Done()
-	go func() {
-		a.Quit()
-	}()
-	a.Run()
+	go func() { <-ctx.Done(); a.Quit() }()
+	w.ShowAndRun()
 	return nil
 }
 

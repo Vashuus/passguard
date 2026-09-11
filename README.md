@@ -46,12 +46,16 @@ passguard passphrase -w 5      # 5-word passphrase
 passguard leak "p@ssw0rd123"   # has it leaked? (k-anonymous HIBP)
 ```
 
+On **Windows**, double-clicking the binary opens the GUI window directly; running it
+from a terminal gives you the interactive TUI (or any CLI subcommand).
+
 ### Commands
 
 | Command | Description |
 |---|---|
-| `passguard` | TUI (space = HIBP check, `g` = generate, `t` = reveal/hide, `q`/`esc` = quit) |
+| `passguard` | TUI (Enter = HIBP, `Ctrl+G` = generate, `Ctrl+P` = passphrase, `Ctrl+Q`/`esc` = quit) |
 | `passguard --gui` | Fyne window with a live strength bar |
+| `passguard` (double-click Windows) | Opens the GUI window automatically |
 | `check "<pw>"` | Entropy, guesses, crack time, strength score and found patterns |
 | `gen [-l 20] [--upper] [--digits] [--symbols] [--similar]` | CSPRNG-password |
 | `passphrase [-w 4]` | Memorable passphrase |
@@ -86,6 +90,7 @@ passguard/
     strength/            Entropy engine (zxcvbn-like) + embedded dictionaries
     generator/           CSPRNG + rejection sampling + passphrases
     breach/              k-anonymous HIBP client
+    console/             Windows double-click detection (auto-GUI)
     config/              JSON config at ~/.config/passguard
   docs/index.html        GitHub Pages web app
   .github/workflows/     CI (build+test) and Release (per-OS binaries)

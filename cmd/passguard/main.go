@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Vashuus/passguard/internal/console"
 	"github.com/Vashuus/passguard/internal/generator"
 	"github.com/Vashuus/passguard/internal/strength"
 	"github.com/spf13/cobra"
@@ -43,11 +44,11 @@ func main() {
 		Use:     "passguard",
 		Short:   "Generador y auditor de contraseñas difícilmente automatizables",
 		Long:    "PassGuard: genera y audita contraseñas con entropía alta y patrones\nresistidos, en terminal (TUI), ventana (GUI) o línea de comandos.",
-		Version: "0.1.0",
+		Version: "0.1.1",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			gui, _ := cmd.Flags().GetBool("gui")
-			if gui {
+			if gui || console.AutoGUI() {
 				return runGUI(cmd.Context())
 			}
 			return runTUI(cmd.Context())
